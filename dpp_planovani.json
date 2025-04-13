@@ -1,0 +1,166 @@
+{
+    "2025": [
+        {
+            "Provede": "Tomáš Mika",
+            "Název Akce": "DPP - Laboratorní měření - klinické vyšetření",
+            "Cena/h": 250.0,
+            "Pč/h": 10.0,
+            "Cena": 2500.0,
+            "Zadal": "npor. Maleček",
+            "Poznámka": "Bude upřesněno"
+        },
+        {
+            "Provede": "Tomáš Mika",
+            "Název Akce": "DPP - Laboratorní měření - měření maximální spotřeby kyslíku (Cortex)",
+            "Cena/h": 250.0,
+            "Pč/h": 10.0,
+            "Cena": 2500.0,
+            "Zadal": "npor. Maleček",
+            "Poznámka": ""
+        },
+        {
+            "Provede": "Anna Pisz",
+            "Název Akce": "DPP - Laboratorní měření - antropometrické měření DEXA",
+            "Cena/h": 250.0,
+            "Pč/h": 20.0,
+            "Cena": 5000.0,
+            "Zadal": "plk. Vágner",
+            "Poznámka": "Bude upřesněno"
+        },
+        {
+            "Provede": "Vít Třebický",
+            "Název Akce": "DPP - Profesionální portrétní focení členů katedry pro propagační materiály",
+            "Cena/h": 250.0,
+            "Pč/h": 40.0,
+            "Cena": 10000.0,
+            "Zadal": "npor. Maleček",
+            "Poznámka": ""
+        },
+        {
+            "Provede": "Roman Malíř",
+            "Název Akce": "DPP - Statistická analýza, konzultace metodologie a podpora při zpracování dat",
+            "Cena/h": 250.0,
+            "Pč/h": 40.0,
+            "Cena": 10000.0,
+            "Zadal": "npor. Maleček",
+            "Poznámka": ""
+        },
+        {
+            "Provede": "Ivana Kaki",
+            "Název Akce": "DPP - Odběry krve",
+            "Cena/h": 250.0,
+            "Pč/h": 30.0,
+            "Cena": 7500.0,
+            "Zadal": "npor. Maleček",
+            "Poznámka": ""
+        },
+        {
+            "Provede": "UIAGM guide",
+            "Název Akce": "DPP - Kurz vedoucích I lezení",
+            "Cena/h": 250.0,
+            "Pč/h": 40.0,
+            "Cena": 10000.0,
+            "Zadal": "pplk. Michalička",
+            "Poznámka": ""
+        },
+        {
+            "Provede": "Ladislav Siegr",
+            "Název Akce": "DPP - Kurz Základů přežití",
+            "Cena/h": 250.0,
+            "Pč/h": 8.0,
+            "Cena": 2000.0,
+            "Zadal": "mjr. Mašek",
+            "Poznámka": ""
+        },
+        {
+            "Provede": "Jan Novák",
+            "Název Akce": "DPP - Kondiční trenér - vzpírání ve vojenské praxi - praktická výuka předmětu fyzická příprava vojsk",
+            "Cena/h": 250.0,
+            "Pč/h": 20.0,
+            "Cena": 5000.0,
+            "Zadal": "npor. Maleček",
+            "Poznámka": ""
+        },
+        {
+            "Provede": "Paul Bielak",
+            "Název Akce": "DPP - Kondiční trenér - problematika bolesti bederní oblasti - praktická výuka předmětu fyzická příprava vojsk",
+            "Cena/h": 250.0,
+            "Pč/h": 20.0,
+            "Cena": 5000.0,
+            "Zadal": "npor. Maleček",
+            "Poznámka": ""
+        },
+        {
+            "Provede": "Daniel Šťastný",
+            "Název Akce": "DPP - Sportovní výživa - kurzy CŽV",
+            "Cena/h": 250.0,
+            "Pč/h": 20.0,
+            "Cena": 5000.0,
+            "Zadal": "oz. Sovák",
+            "Poznámka": ""
+        },
+        {
+            "Provede": "Hana Fryšová",
+            "Název Akce": "DPP - Kondiční trenér - střelba - příprava reprezentačního družstva vojenského pětiboje",
+            "Cena/h": 250.0,
+            "Pč/h": 26.0,
+            "Cena": 6500.0,
+            "Zadal": "oz. Přívětivý",
+            "Poznámka": ""
+        },
+        {
+            "Provede": "Ivana Felgrová",
+            "Název Akce": "DPP - Kondiční trenér - plavání - příprava reprezentačního družstva vojenského pětiboje ",
+            "Cena/h": 250.0,
+            "Pč/h": 10.0,
+            "Cena": 2500.0,
+            "Zadal": "oz. Přívetivý",
+            "Poznámka": ""
+        },
+        {
+            "Provede": "Radim Jebavý",
+            "Název Akce": "DPP - Kondiční trenér - hody - příprava reprezentačního družstva vojenského pětiboje ",
+            "Cena/h": 250.0,
+            "Pč/h": 9.0,
+            "Cena": 2250.0,
+            "Zadal": "oz. Přívetivý",
+            "Poznámka": ""
+        },
+        {
+            "Provede": "Hana Fryšová",
+            "Název Akce": "DPP - Kondiční trenér - běžecké lyžování - příprava reprezentačního družstva vojenského pětiboje ",
+            "Cena/h": 250.0,
+            "Pč/h": 34.0,
+            "Cena": 8500.0,
+            "Zadal": "oz. Přívetivý",
+            "Poznámka": ""
+        },
+        {
+            "Provede": "František Poláček",
+            "Název Akce": "DPP - Zajištění mezinárodního závodu ve vojenském pětiboji - střelba",
+            "Cena/h": 250.0,
+            "Pč/h": 20.0,
+            "Cena": 5000.0,
+            "Zadal": "oz. Přívetivý",
+            "Poznámka": ""
+        },
+        {
+            "Provede": "Petr Turia",
+            "Název Akce": "DPP - Výuka boje zblízka – Metodika boje bodákem ",
+            "Cena/h": 250.0,
+            "Pč/h": 10.0,
+            "Cena": 2500.0,
+            "Zadal": "plk. Vágner",
+            "Poznámka": "23.4.2025"
+        },
+        {
+            "Provede": "Pavel Štefko",
+            "Název Akce": "DPP - Výuka boje zblízka – Metodika a práce s cvičnými úderovými cíli",
+            "Cena/h": 250.0,
+            "Pč/h": 10.0,
+            "Cena": 2500.0,
+            "Zadal": "plk. Vágner",
+            "Poznámka": "24.4.2025"
+        }
+    ]
+}
