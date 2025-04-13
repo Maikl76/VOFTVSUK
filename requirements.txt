@@ -5,3 +5,4 @@ docxcompose
 streamlit-quill
 openpyxl
 reportlab
+xlsxwriter
