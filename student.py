@@ -1,33 +1,40 @@
 import streamlit as st
 import pandas as pd
-import json, os, datetime
-from copy import deepcopy
+from supabase import create_client, Client
+import datetime
 from io import BytesIO
+import json, os
+from copy import deepcopy
 
-st.markdown("""
-<style>
-.stTextInput>div>div>input {
-    max-width: 150px;
-}
-</style>
-""", unsafe_allow_html=True)
+# Inicializace Supabase klienta
+SUPABASE_URL = "https://aatpylewilzcqfqaoixx.supabase.co"
+SUPABASE_KEY = "aaJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJndHB5bGV3aWx6Y3FmcWFvaXh4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQ1NzQxNTQsImV4cCI6MjA2MDE1MDE1NH0.6NutsH1g8k0ruhpylqltrWD53HQFy-ZQjcUN-SULktM"
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-DATA_FILE = "students.json"
-
+# Funkce pro načítání studentů z Supabase
 def load_students():
-    if os.path.exists(DATA_FILE):
-        with open(DATA_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
-    else:
+    response = supabase.table("students").select("*").execute()
+    if response.error:
+        st.error("Chyba při načítání studentů: " + response.error.message)
         return []
+    return response.data
 
-def save_students(data):
-    with open(DATA_FILE, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=4)
+# Funkce pro aktualizaci studenta (podle unikátní hodnoty id_op)
+def save_students(updated_student):
+    response = supabase.table("students").update(updated_student).eq("id_op", updated_student["id_op"]).execute()
+    if response.error:
+        st.error("Chyba při aktualizaci studenta: " + response.error.message)
+    return response.data
+
+# Funkce pro vložení nového studenta
+def insert_student(new_student):
+    response = supabase.table("students").insert(new_student).execute()
+    if response.error:
+        st.error("Chyba při vkládání nového studenta: " + response.error.message)
+    return response.data
 
 def run_add_student():
     st.header("Přidat nového studenta")
-    students = load_students()
     with st.form(key="add_student_form", clear_on_submit=True):
         hodnost = st.selectbox("Hodnost", ["--", "svob.", "des.", "čet.", "rtn. Bc.", "rtm. Bc."], key="add_hodnost")
         first_name = st.text_input("Jméno", key="add_first_name")
@@ -57,45 +64,33 @@ def run_add_student():
                 "note": note,
                 "study_type": study_type,
                 "cohort": cohort,
-                "subjects": {},
+                "subjects": {},  # nastavte prázdnou hodnotu nebo výchozí strukturu dle potřeby
                 "is_graduated": False
             }
-            students.append(new_student)
-            save_students(students)
+            insert_student(new_student)
             st.success("Nový student přidán!")
-            try:
-                st.experimental_rerun()
-            except AttributeError:
-                pass
+            st.experimental_rerun()
 
 def run_edit_student():
     st.header("Editace studenta")
     students = load_students()
-    if not students:
-        st.info("Žádní studenti nejsou zaregistrováni.")
-        return
-
-    df = pd.DataFrame(students)
-    if df.empty:
-        st.info("Data nejsou k dispozici.")
-        return
-
-    # Převod indexů na list, aby byly použitelné ve selectboxu
-    indices = list(df.index)
+    if students:
+        df = pd.DataFrame(students)
+    else:
+        df = pd.DataFrame(columns=["hodnost", "first_name", "last_name", "date_of_birth",
+                                   "address", "phone", "email", "id_op", "id_sp", "note",
+                                   "study_type", "cohort", "subjects", "is_graduated"])
+    # Zobrazíme tabulku bez sloupce "subjects"
+    df_display = df.drop(columns=["subjects"], errors="ignore")
+    st.dataframe(df_display, use_container_width=True)
+    
     selected_index = st.selectbox(
         "Vyberte studenta ke změně",
-        options=indices,
+        options=df.index,
         format_func=lambda i: f"{df.loc[i, 'hodnost']} {df.loc[i, 'first_name']} {df.loc[i, 'last_name']} ({df.loc[i, 'cohort']})",
         key="select_student_edit"
     )
-
-    # Pokud se vybraný index neobjeví, zachytíme KeyError a upozorníme uživatele
-    try:
-        selected_student = df.loc[selected_index].to_dict()
-    except KeyError:
-        st.error("Vybraný student nebyl nalezen. Zkuste obnovit stránku.")
-        return
-
+    selected_student = df.loc[selected_index].to_dict()
     with st.form(key="edit_student_form"):
         new_hodnost = st.selectbox("Hodnost", ["--", "svob.", "des.", "čet.", "rtn. Bc.", "rtm. Bc."],
                                    index=["--", "svob.", "des.", "čet.", "rtn. Bc.", "rtm. Bc."].index(selected_student.get("hodnost", "svob.")),
@@ -114,43 +109,31 @@ def run_edit_student():
                                       index=["Prezenční", "Kombinované"].index(selected_student.get("study_type", "Prezenční")),
                                       key="edit_study_type")
         cohorts = ["1. Bc.", "2. Bc.", "3. Bc.", "1. Mgr.", "2. Mgr."]
-        new_cohort = st.selectbox("Ročník", cohorts, index=cohorts.index(selected_student.get("cohort", cohorts[0])), key="edit_cohort")
+        new_cohort = st.selectbox("Ročník", cohorts,
+                                  index=cohorts.index(selected_student.get("cohort", cohorts[0])),
+                                  key="edit_cohort")
         graduated = st.checkbox("Absolvent", value=selected_student.get("is_graduated", False), key="edit_graduated")
         submitted_edit = st.form_submit_button("Uložit změny")
         if submitted_edit:
-            for s in students:
-                if s.get("id_op") == selected_student.get("id_op"):
-                    s["hodnost"] = new_hodnost
-                    s["first_name"] = new_first_name
-                    s["last_name"] = new_last_name
-                    s["date_of_birth"] = new_dob.strftime("%Y-%m-%d")
-                    s["address"] = new_address
-                    s["phone"] = new_phone
-                    s["email"] = new_email
-                    s["id_op"] = new_id_op
-                    s["id_sp"] = new_id_sp
-                    s["note"] = new_note
-                    s["study_type"] = new_study_type
-                    s["cohort"] = new_cohort
-                    s["is_graduated"] = graduated
-            save_students(students)
+            updated_student = deepcopy(selected_student)
+            updated_student.update({
+                "hodnost": new_hodnost,
+                "first_name": new_first_name,
+                "last_name": new_last_name,
+                "date_of_birth": new_dob.strftime("%Y-%m-%d"),
+                "address": new_address,
+                "phone": new_phone,
+                "email": new_email,
+                "id_op": new_id_op,
+                "id_sp": new_id_sp,
+                "note": new_note,
+                "study_type": new_study_type,
+                "cohort": new_cohort,
+                "is_graduated": graduated
+            })
+            save_students(updated_student)
             st.success("Student upraven!")
-            try:
-                st.experimental_rerun()
-            except AttributeError:
-                pass
-
-    st.subheader("Smazat studenta")
-    confirm_delete = st.checkbox("Opravdu smazat tohoto studenta?", key=f"confirm_delete_{selected_index}")
-    if confirm_delete:
-        if st.button("Smazat studenta", key="delete_student_edit"):
-            students = [s for s in students if s.get("id_op") != selected_student.get("id_op")]
-            save_students(students)
-            st.success("Student smazán!")
-            try:
-                st.experimental_rerun()
-            except AttributeError:
-                pass
+            st.experimental_rerun()
 
 def run_graduates():
     st.header("Absolventi")
@@ -163,7 +146,7 @@ def run_graduates():
     st.dataframe(df, use_container_width=True)
 
 if __name__ == "__main__":
-    # Pro testování jednotlivých funkcí odkomentujte požadovanou funkci:
-    run_add_student()
+    # Při testování odkomentujte jednu z funkcí:
+    # run_add_student()
     # run_edit_student()
     # run_graduates()
