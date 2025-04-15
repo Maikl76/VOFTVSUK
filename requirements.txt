@@ -6,3 +6,4 @@ streamlit-quill
 openpyxl
 reportlab
 xlsxwriter
+supabase
