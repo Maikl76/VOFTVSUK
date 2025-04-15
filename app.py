@@ -1,13 +1,18 @@
 import streamlit as st
+from supabase import create_client, Client
+import json, os, datetime
+import pandas as pd
+from docx import Document
+from docx.shared import Pt, Inches
+from io import BytesIO
+from streamlit_quill import st_quill  # WYSIWYG editor
+import csv
+from io import StringIO
 
-# Nastavení hesla – změňte toto heslo dle potřeby
+# --- Přihlašovací formulář (stejné jako dříve) ---
 PASSWORD = "1954"
-
-# Zajištění autentizace pomocí session_state
 if "authenticated" not in st.session_state:
     st.session_state["authenticated"] = False
-
-# Pokud uživatel ještě není autentizován, zobrazíme přihlašovací formulář
 if not st.session_state["authenticated"]:
     st.title("Přihlášení")
     pwd = st.text_input("Zadejte heslo", type="password")
@@ -20,64 +25,18 @@ if not st.session_state["authenticated"]:
     st.stop()
 
 st.set_page_config(layout="wide")
-
-# Přidání hlavičky s logem a názvem aplikace
 col1, col2 = st.columns([1, 6])
 with col1:
-    st.image("Logo.png", width=50)  # Upravte velikost loga dle potřeby
+    st.image("Logo.png", width=50)
 with col2:
     st.markdown("<h1 style='margin-bottom: 0;'>Vojenský obor FTVS UK</h1>", unsafe_allow_html=True)
 
-import json, os, datetime
-import pandas as pd
-from docx import Document
-from docx.shared import Pt, Inches
-from io import BytesIO
-from streamlit_quill import st_quill  # WYSIWYG editor
-import csv
-from io import StringIO
+# --- Inicializace Supabase klienta ---
+SUPABASE_URL = "https://bgtpylewilzcqfqaoixx.supabase.co"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJndHB5bGV3aWx6Y3FmcWFvaXh4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQ1NzQxNTQsImV4cCI6MjA2MDE1MDE1NH0.6NutsH1g8k0ruhpylqltrWD53HQFy-ZQjcUN-SULktM"
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# Pokud není modul dpp dostupný, vytvoříme dummy verzi
-try:
-    import dpp
-except ModuleNotFoundError:
-    class DummyDPP:
-        def run_dpp(self):
-            st.info("Modul DPP není k dispozici.")
-    dpp = DummyDPP()
-
-try:
-    import pri
-except ModuleNotFoundError:
-    class DummyPRI:
-        def run_pri(self, year):
-            st.info("Modul PRI není k dispozici.")
-    pri = DummyPRI()
-
-try:
-    import zsc
-except ModuleNotFoundError:
-    class DummyZSC:
-        def run_zsc(self):
-            st.info("Modul ZSC není k dispozici.")
-    zsc = DummyZSC()
-
-# Custom CSS – nastavuje font na Times New Roman a zúží vstupní pole
-st.markdown(
-    """
-    <style>
-    .ql-editor {
-        font-family: "Times New Roman", serif;
-        font-size: 14px;
-    }
-    .stTextInput>div>div>input {
-        max-width: 100px;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
-
+# --- Pomocné funkce ---
 def format_table(doc_table, font_size=10):
     doc_table.style = "Table Grid"
     for row in doc_table.rows:
@@ -86,19 +45,34 @@ def format_table(doc_table, font_size=10):
                 for run in paragraph.runs:
                     run.font.size = Pt(font_size)
 
-DATA_FILE = "evaluations.json"
+# --- Funkce pro práci s vyhodnocením v Supabase ---
+def load_evaluations():
+    response = supabase.table("evaluations").select("*").execute()
+    if response.error:
+        st.error("Chyba při načítání vyhodnocení: " + response.error.message)
+        return {}
+    evaluations = {}
+    for row in response.data:
+        evaluations[row["key_period"]] = row["eval_data"]
+    return evaluations
 
-if os.path.exists(DATA_FILE):
-    try:
-        with open(DATA_FILE, "r", encoding="utf-8") as f:
-            stored_evals = json.load(f)
-    except json.decoder.JSONDecodeError:
-        stored_evals = {}
-        with open(DATA_FILE, "w", encoding="utf-8") as f:
-            json.dump(stored_evals, f, ensure_ascii=False, indent=4, default=str)
-else:
-    stored_evals = {}
+def save_evaluation(key_period, eval_data):
+    # Zkontrolujeme, zda již záznam existuje
+    response = supabase.table("evaluations").select("*").eq("key_period", key_period).execute()
+    if response.error:
+        st.error("Chyba při načítání vyhodnocení: " + response.error.message)
+        return
+    if len(response.data) == 0:
+        insert_resp = supabase.table("evaluations").insert({"key_period": key_period, "eval_data": eval_data}).execute()
+        if insert_resp.error:
+            st.error("Chyba při ukládání vyhodnocení: " + insert_resp.error.message)
+    else:
+        update_resp = supabase.table("evaluations").update({"eval_data": eval_data}).eq("key_period", key_period).execute()
+        if update_resp.error:
+            st.error("Chyba při aktualizaci vyhodnocení: " + update_resp.error.message)
 
+# --- Načtení vyhodnocení z databáze ---
+stored_evals = load_evaluations()
 if "evaluations" not in st.session_state:
     st.session_state.evaluations = stored_evals
 
@@ -131,7 +105,6 @@ custom_headings = {
     "Jazykové vzdělávání": "2.2.7 Realizovat jazykové vzdělávání"
 }
 
-# Seznam základních předmětových sloupců dle zadání
 desired_columns = [
     "TaD-I", "TaD-II", "TaD-III",
     "TaD-1", "TaD-2", "TaD-3",
@@ -146,7 +119,7 @@ desired_columns = [
     "Kurz VPL-I", "Kurz VPL-II",
     "Kurz STP-I", "Kurz STP-II",
     "Instr. BZ", "Instr. VL", "Instr. PSL", "Instr. ZP", "Instr. VPL"
-]
+}
 
 subject_mapping = {
     "Teorie a didaktika AČR-I": "TaD-I",
@@ -203,7 +176,6 @@ def extract_subjects(student):
             for subj_full, details in subj_dict.items():
                 if subj_full in subject_mapping:
                     abbr = subject_mapping[subj_full]
-                    # Pokud je v detailech definován klíč 'instruktor', použijeme ho pro určení splnění
                     if isinstance(details, dict) and "instruktor" in details:
                         value = "ANO" if details.get("instruktor", False) else "NE"
                     elif abbr in grade_required:
@@ -217,7 +189,6 @@ def extract_subjects(student):
                             value = "ANO" if details.get("completed", False) else "NE"
                         else:
                             value = "ANO" if details else "NE"
-                    # Při opakovaném objevení stejné položky preferujeme "ANO"
                     if abbr in result:
                         if result[abbr] != "ANO" and value != "NE":
                             result[abbr] = value
@@ -232,11 +203,12 @@ def extract_subjects(student):
 
 def run_summary():
     st.header("Souhrn všech studentů")
-    if not os.path.exists("students.json"):
-        st.info("Nejsou k dispozici žádná data o studentech.")
+    # Načteme studenty z Supabase
+    response = supabase.table("students").select("*").execute()
+    if response.error:
+        st.error("Chyba při načítání studentů: " + response.error.message)
         return
-    with open("students.json", "r", encoding="utf-8") as f:
-        students = json.load(f)
+    students = response.data
     if not students:
         st.info("Žádní studenti nejsou zaregistrováni.")
         return
@@ -264,8 +236,8 @@ def run_summary():
         processed_data = output.getvalue()
         st.download_button(label="Stáhnout Excel soubor", data=processed_data, file_name="Studenti_souhrn.xlsx", mime="application/vnd.ms-excel")
 
-# Import modulů pro studenty
-import student  # Modul pro přidání a editaci studentů
+# --- Import modulů pro studenta ---
+import student   # Tento modul slouží pro přidání a editaci studentů
 import student_1Bc, student_2Bc, student_3Bc, student_1Mgr, student_2Mgr
 
 with st.sidebar.expander("Nastavení položek vyhodnocení"):
@@ -309,8 +281,7 @@ with tabs[0]:
                     if st.button("Smazat nahraný soubor", key="delete_apvvp"):
                         saved_eval[item]["table"] = None
                         st.session_state.evaluations[key_period] = saved_eval
-                        with open(DATA_FILE, "w", encoding="utf-8") as f:
-                            json.dump(st.session_state.evaluations, f, ensure_ascii=False, indent=4, default=str)
+                        save_evaluation(key_period, saved_eval)
                         st.success("Nahraný soubor byl smazán.")
                 uploaded_file = st.file_uploader("Vyberte soubor", type=["xlsx"], key="upload_apvvp")
                 table_data = None
@@ -354,8 +325,7 @@ with tabs[0]:
                 eval_data[item] = {"text": text, "finished": finished_flag}
         if st.button("Uložit vyhodnocení", key="save_eval"):
             st.session_state.evaluations[key_period] = eval_data
-            with open(DATA_FILE, "w", encoding="utf-8") as f:
-                json.dump(st.session_state.evaluations, f, ensure_ascii=False, indent=4, default=str)
+            save_evaluation(key_period, eval_data)
             st.success("Vyhodnocení uloženo!")
         
         st.subheader("Generování dokumentů")
@@ -374,6 +344,7 @@ with tabs[0]:
                     eval_doc.add_heading(f"Vyhodnocení za: {selected_period} roku {current_year}", level=0)
                     eval_doc.add_page_break()
                     
+                    # Výběr položek podle nastavení
                     if st.session_state.get("include_celkovy", False):
                         doc_items = items
                     else:
@@ -546,23 +517,26 @@ with tabs[1]:
         st.info("Pro zvolený rok a období nejsou uložena žádná vyhodnocení.")
 
 with tabs[2]:
+    import dpp
     dpp.run_dpp()
 
 with tabs[3]:
+    import pri
     selected_year = st.number_input("Zvolte aktuální rok pro evidenci PR-I", 
                                     min_value=2000, max_value=2100, 
                                     value=datetime.datetime.now().year, step=1)
     pri.run_pri(selected_year)
 
 with tabs[4]:
+    import zsc
     zsc.run_zsc()
 
 with tabs[5]:
     st.header("Student")
-    # Tlačítko Aktualizovat data pod nadpisem Student
     if st.button("Aktualizovat data"):
         from streamlit.runtime.scriptrunner import RerunException, RerunData
         raise RerunException(RerunData(st.query_params))
+    import student
     student_subtabs = st.tabs(["Vojenské předměty", "Přidat studenta", "Editace studenta", "Absolventi"])
     with student_subtabs[0]:
         st.subheader("Vojenské předměty")
