@@ -71,13 +71,16 @@ def run_add_student():
 def run_edit_student():
     st.header("Editace studenta")
     students = load_students()
-    if students:
-        df = pd.DataFrame(students)
-    else:
-        df = pd.DataFrame(columns=["hodnost", "first_name", "last_name", "date_of_birth",
-                                   "address", "phone", "email", "id_op", "id_sp", "note",
-                                   "study_type", "cohort", "subjects", "is_graduated"])
-    # Převod indexů na list, aby se zabránilo problémům s indexováním
+    if not students:
+        st.info("Žádní studenti nejsou zaregistrováni.")
+        return
+
+    df = pd.DataFrame(students)
+    if df.empty:
+        st.info("Data nejsou k dispozici.")
+        return
+
+    # Převod indexů na list, aby byly použitelné ve selectboxu
     indices = list(df.index)
     selected_index = st.selectbox(
         "Vyberte studenta ke změně",
@@ -85,8 +88,14 @@ def run_edit_student():
         format_func=lambda i: f"{df.loc[i, 'hodnost']} {df.loc[i, 'first_name']} {df.loc[i, 'last_name']} ({df.loc[i, 'cohort']})",
         key="select_student_edit"
     )
-    selected_student = df.loc[selected_index].to_dict()
-    
+
+    # Pokud se vybraný index neobjeví, zachytíme KeyError a upozorníme uživatele
+    try:
+        selected_student = df.loc[selected_index].to_dict()
+    except KeyError:
+        st.error("Vybraný student nebyl nalezen. Zkuste obnovit stránku.")
+        return
+
     with st.form(key="edit_student_form"):
         new_hodnost = st.selectbox("Hodnost", ["--", "svob.", "des.", "čet.", "rtn. Bc.", "rtm. Bc."],
                                    index=["--", "svob.", "des.", "čet.", "rtn. Bc.", "rtm. Bc."].index(selected_student.get("hodnost", "svob.")),
