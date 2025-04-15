@@ -1,5 +1,4 @@
 import streamlit as st
-from supabase import create_client, Client
 import json, os, datetime
 import pandas as pd
 from docx import Document
@@ -9,10 +8,20 @@ from streamlit_quill import st_quill  # WYSIWYG editor
 import csv
 from io import StringIO
 
-# --- Přihlašovací formulář (stejné jako dříve) ---
+# ===== KONFIGURACE SUPABASE =====
+from supabase import create_client, Client
+# Nahraďte tyto hodnoty vašimi údaji
+SUPABASE_URL = "https://bgtpylewilzcqfqaoixx.supabase.co"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJndHB5bGV3aWx6Y3FmcWFvaXh4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQ1NzQxNTQsImV4cCI6MjA2MDE1MDE1NH0.6NutsH1g8k0ruhpylqltrWD53HQFy-ZQjcUN-SULktM"  # Zadejte svůj klíč
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+# =================================
+
+# Nastavení hesla – změňte dle potřeby
 PASSWORD = "1954"
+
 if "authenticated" not in st.session_state:
     st.session_state["authenticated"] = False
+
 if not st.session_state["authenticated"]:
     st.title("Přihlášení")
     pwd = st.text_input("Zadejte heslo", type="password")
@@ -25,18 +34,30 @@ if not st.session_state["authenticated"]:
     st.stop()
 
 st.set_page_config(layout="wide")
+
+# Hlavička – logo a název
 col1, col2 = st.columns([1, 6])
 with col1:
     st.image("Logo.png", width=50)
 with col2:
     st.markdown("<h1 style='margin-bottom: 0;'>Vojenský obor FTVS UK</h1>", unsafe_allow_html=True)
 
-# --- Inicializace Supabase klienta ---
-SUPABASE_URL = "https://bgtpylewilzcqfqaoixx.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJndHB5bGV3aWx6Y3FmcWFvaXh4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQ1NzQxNTQsImV4cCI6MjA2MDE1MDE1NH0.6NutsH1g8k0ruhpylqltrWD53HQFy-ZQjcUN-SULktM"
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+# Custom CSS
+st.markdown(
+    """
+    <style>
+    .ql-editor {
+        font-family: "Times New Roman", serif;
+        font-size: 14px;
+    }
+    .stTextInput>div>div>input {
+        max-width: 100px;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
 
-# --- Pomocné funkce ---
 def format_table(doc_table, font_size=10):
     doc_table.style = "Table Grid"
     for row in doc_table.rows:
@@ -45,36 +66,23 @@ def format_table(doc_table, font_size=10):
                 for run in paragraph.runs:
                     run.font.size = Pt(font_size)
 
-# --- Funkce pro práci s vyhodnocením v Supabase ---
+# Funkce pro práci s evaluacemi pomocí Supabase
 def load_evaluations():
-    response = supabase.table("evaluations").select("*").execute()
-    if response.error:
-        st.error("Chyba při načítání vyhodnocení: " + response.error.message)
-        return {}
-    evaluations = {}
-    for row in response.data:
-        evaluations[row["key_period"]] = row["eval_data"]
-    return evaluations
-
-def save_evaluation(key_period, eval_data):
-    # Zkontrolujeme, zda již záznam existuje
-    response = supabase.table("evaluations").select("*").eq("key_period", key_period).execute()
-    if response.error:
-        st.error("Chyba při načítání vyhodnocení: " + response.error.message)
-        return
-    if len(response.data) == 0:
-        insert_resp = supabase.table("evaluations").insert({"key_period": key_period, "eval_data": eval_data}).execute()
-        if insert_resp.error:
-            st.error("Chyba při ukládání vyhodnocení: " + insert_resp.error.message)
+    # Předpokládáme, že tabulka evaluations má jediný řádek s ID = 1 a sloupec data (JSONB)
+    response = supabase.table("evaluations").select("data").eq("id", 1).execute()
+    if response.data and "data" in response.data[0]:
+        return response.data[0]["data"]
     else:
-        update_resp = supabase.table("evaluations").update({"eval_data": eval_data}).eq("key_period", key_period).execute()
-        if update_resp.error:
-            st.error("Chyba při aktualizaci vyhodnocení: " + update_resp.error.message)
+        return {}
 
-# --- Načtení vyhodnocení z databáze ---
-stored_evals = load_evaluations()
+def save_evaluations(new_data):
+    # Aktualizace řádku s ID = 1
+    response = supabase.table("evaluations").update({"data": new_data}).eq("id", 1).execute()
+    return response
+
+# Načteme evaluace a uložíme je do session_state, pokud ještě neexistují
 if "evaluations" not in st.session_state:
-    st.session_state.evaluations = stored_evals
+    st.session_state.evaluations = load_evaluations()
 
 evaluation_periods = {
     "1. čtvrtletí": ("1. leden", "31. březen"),
@@ -119,7 +127,7 @@ desired_columns = [
     "Kurz VPL-I", "Kurz VPL-II",
     "Kurz STP-I", "Kurz STP-II",
     "Instr. BZ", "Instr. VL", "Instr. PSL", "Instr. ZP", "Instr. VPL"
-}
+]
 
 subject_mapping = {
     "Teorie a didaktika AČR-I": "TaD-I",
@@ -203,11 +211,8 @@ def extract_subjects(student):
 
 def run_summary():
     st.header("Souhrn všech studentů")
-    # Načteme studenty z Supabase
+    # Načteme data ze Supabase – předpokládáme, že tabulka "students" obsahuje sloupec "subjects" s uloženými JSON daty.
     response = supabase.table("students").select("*").execute()
-    if response.error:
-        st.error("Chyba při načítání studentů: " + response.error.message)
-        return
     students = response.data
     if not students:
         st.info("Žádní studenti nejsou zaregistrováni.")
@@ -236,8 +241,9 @@ def run_summary():
         processed_data = output.getvalue()
         st.download_button(label="Stáhnout Excel soubor", data=processed_data, file_name="Studenti_souhrn.xlsx", mime="application/vnd.ms-excel")
 
-# --- Import modulů pro studenta ---
-import student   # Tento modul slouží pro přidání a editaci studentů
+# Import modulů pro studenty
+# V tomto příkladu používáme změněný modul student.py, který také komunikuje se Supabase.
+import student
 import student_1Bc, student_2Bc, student_3Bc, student_1Mgr, student_2Mgr
 
 with st.sidebar.expander("Nastavení položek vyhodnocení"):
@@ -281,7 +287,8 @@ with tabs[0]:
                     if st.button("Smazat nahraný soubor", key="delete_apvvp"):
                         saved_eval[item]["table"] = None
                         st.session_state.evaluations[key_period] = saved_eval
-                        save_evaluation(key_period, saved_eval)
+                        # Uložíme do Supabase – předpokládáme, že evaluace se uloží aktualizací řádku s ID 1
+                        save_evaluations(st.session_state.evaluations)
                         st.success("Nahraný soubor byl smazán.")
                 uploaded_file = st.file_uploader("Vyberte soubor", type=["xlsx"], key="upload_apvvp")
                 table_data = None
@@ -325,7 +332,7 @@ with tabs[0]:
                 eval_data[item] = {"text": text, "finished": finished_flag}
         if st.button("Uložit vyhodnocení", key="save_eval"):
             st.session_state.evaluations[key_period] = eval_data
-            save_evaluation(key_period, eval_data)
+            save_evaluations(st.session_state.evaluations)
             st.success("Vyhodnocení uloženo!")
         
         st.subheader("Generování dokumentů")
@@ -344,12 +351,9 @@ with tabs[0]:
                     eval_doc.add_heading(f"Vyhodnocení za: {selected_period} roku {current_year}", level=0)
                     eval_doc.add_page_break()
                     
-                    # Výběr položek podle nastavení
-                    if st.session_state.get("include_celkovy", False):
-                        doc_items = items
-                    else:
-                        doc_items = items_to_eval
-                                        
+                    # Předpokládáme, že items_to_eval byly definovány
+                    doc_items = items if st.session_state.get("include_celkovy", False) else [item for item in items if st.session_state.get(f"include_{item}", False)]
+                    
                     for idx, item in enumerate(doc_items):
                         data = st.session_state.evaluations.get(key_period, {}).get(item, {})
                         if idx < 6:
@@ -517,18 +521,15 @@ with tabs[1]:
         st.info("Pro zvolený rok a období nejsou uložena žádná vyhodnocení.")
 
 with tabs[2]:
-    import dpp
     dpp.run_dpp()
 
 with tabs[3]:
-    import pri
     selected_year = st.number_input("Zvolte aktuální rok pro evidenci PR-I", 
                                     min_value=2000, max_value=2100, 
                                     value=datetime.datetime.now().year, step=1)
     pri.run_pri(selected_year)
 
 with tabs[4]:
-    import zsc
     zsc.run_zsc()
 
 with tabs[5]:
@@ -536,7 +537,6 @@ with tabs[5]:
     if st.button("Aktualizovat data"):
         from streamlit.runtime.scriptrunner import RerunException, RerunData
         raise RerunException(RerunData(st.query_params))
-    import student
     student_subtabs = st.tabs(["Vojenské předměty", "Přidat studenta", "Editace studenta", "Absolventi"])
     with student_subtabs[0]:
         st.subheader("Vojenské předměty")
