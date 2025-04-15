@@ -4,7 +4,6 @@ import json, os, datetime
 from copy import deepcopy
 from io import BytesIO
 
-# Nastavení CSS pro vstupní pole
 st.markdown("""
 <style>
 .stTextInput>div>div>input {
@@ -78,31 +77,11 @@ def run_edit_student():
         df = pd.DataFrame(columns=["hodnost", "first_name", "last_name", "date_of_birth",
                                    "address", "phone", "email", "id_op", "id_sp", "note",
                                    "study_type", "cohort", "subjects", "is_graduated"])
-    # Připravíme tabulku bez sloupce "subjects"
-    df_display = df.drop(columns=["subjects"], errors="ignore")
-    
-    # Možnost filtrování podle typu studia
-    filter_option = st.selectbox("Zobrazit studenty:", ["Všichni", "Prezenční", "Kombinované"], key="edit_filter_option")
-    if filter_option != "Všichni":
-        df_display = df_display[df_display["study_type"] == filter_option]
-    
-    st.dataframe(df_display, use_container_width=True)
-    
-    # Export tabulky do Excelu
-    if st.button("Exportovat do Excelu", key="export_edit_student"):
-        output = BytesIO()
-        with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
-            df_display.to_excel(writer, index=False, sheet_name="Studenti")
-        processed_data = output.getvalue()
-        st.download_button(label="Stáhnout Excel soubor", 
-                           data=processed_data, 
-                           file_name="Studenti_editace.xlsx", 
-                           mime="application/vnd.ms-excel",
-                           key="download_edit_student")
-    
+    # Převod indexů na list, aby se zabránilo problémům s indexováním
+    indices = list(df.index)
     selected_index = st.selectbox(
         "Vyberte studenta ke změně",
-        options=df.index,
+        options=indices,
         format_func=lambda i: f"{df.loc[i, 'hodnost']} {df.loc[i, 'first_name']} {df.loc[i, 'last_name']} ({df.loc[i, 'cohort']})",
         key="select_student_edit"
     )
@@ -175,7 +154,7 @@ def run_graduates():
     st.dataframe(df, use_container_width=True)
 
 if __name__ == "__main__":
-    # Pro testování jednotlivých funkcí můžete odkomentovat požadovanou funkci:
+    # Pro testování jednotlivých funkcí odkomentujte požadovanou funkci:
     run_add_student()
     # run_edit_student()
     # run_graduates()
