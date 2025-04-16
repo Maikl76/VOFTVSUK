@@ -14,11 +14,11 @@ from streamlit_quill import st_quill  # WYSIWYG editor
 # ===== KONFIGURACE SUPABASE =====
 from supabase import create_client, Client
 SUPABASE_URL = "https://bgtpylewilzcqfqaoixx.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJndHB5bGV3aWx6Y3FmcWFvaXh4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQ1NzQxNTQsImV4cCI6MjA2MDE1MDE1NH0.6NutsH1g8k0ruhpylqltrWD53HQFy-ZQjcUN-SULktM"  # Nahraďte svým skutečným klíčem
+SUPABASE_KEY = "YOUR_SUPABASE_KEY"  # Nahraďte svým skutečným klíčem
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 # =================================
 
-# Dummy moduly
+# Dummy moduly – pokud dpp, pri a zsc nejsou dostupné
 try:
     import dpp
 except ModuleNotFoundError:
@@ -43,7 +43,7 @@ except ModuleNotFoundError:
             st.info("Modul ZSC není k dispozici.")
     zsc = DummyZSC()
 
-# Sidebar – expander s nastavením vyhodnocení
+# Sidebar s expanderem pro nastavení vyhodnocení
 with st.sidebar.expander("Nastavení položek vyhodnocení"):
     selected_items = {}
     items = [
@@ -117,7 +117,38 @@ def format_table(doc_table, font_size=10):
                 for run in paragraph.runs:
                     run.font.size = Pt(font_size)
 
-# Funkce pro evaluace pomocí Supabase
+# Funkce pro evaluace – funkce run_summary() je zde definována, aby byla dostupná
+def run_summary():
+    st.header("Souhrn všech studentů")
+    try:
+        response = supabase.table("students").select("*").execute()
+        students = response.data or []
+    except Exception as e:
+        st.error("Chyba při načítání studentů: " + str(e))
+        return
+    if not students:
+        st.info("Žádní studenti nejsou zaregistrováni.")
+        return
+    base_cols = ["Hodnost", "Jméno", "Příjmení", "Ročník", "Kohorta"]
+    summary_records = []
+    for s in students:
+        base = {
+            "Hodnost": s.get("hodnost", ""),
+            "Jméno": s.get("first_name", ""),
+            "Příjmení": s.get("last_name", ""),
+            "Ročník": s.get("cohort", ""),
+            "Kohorta": s.get("study_type", "")
+        }
+        summary_records.append(base)
+    df = pd.DataFrame(summary_records, columns=base_cols)
+    st.dataframe(df, use_container_width=True)
+    if st.button("Exportovat do Excelu"):
+        buffer = BytesIO()
+        with pd.ExcelWriter(buffer, engine="xlsxwriter") as writer:
+            df.to_excel(writer, index=False, sheet_name="Studenti")
+        st.download_button(label="Stáhnout Excel soubor", data=buffer.getvalue(), file_name="Studenti_souhrn.xlsx", mime="application/vnd.ms-excel")
+
+# Načítání evaluací pomocí Supabase
 def load_evaluations():
     response = supabase.table("evaluations").select("data").eq("id", 1).execute()
     if response.data and "data" in response.data[0]:
