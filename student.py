@@ -8,7 +8,7 @@ from copy import deepcopy
 
 # Inicializace Supabase klienta
 SUPABASE_URL = "https://bgtpylewilzcqfqaoixx.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJndHB5bGV3aWx6Y3FmcWFvaXh4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQ1NzQxNTQsImV4cCI6MjA2MDE1MDE1NH0.6NutsH1g8k0ruhpylqltrWD53HQFy-ZQjcUN-SULktM"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJndHB5bGV3aWx6Y3FmcWFvaXh4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQ1NzQxNTQsImV4cCI6MjA2MDE1MDE1NH0.6NutsH1g8k0ruhpylqltrWD53HQFy-ZQjcUN-SULktM"  # Nahraďte svým skutečným klíčem
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 def load_students():
@@ -19,63 +19,13 @@ def load_students():
         st.error("Chyba při načítání studentů: " + str(e))
         return []
 
-def save_students(updated_student):
+def save_students(data):
     try:
-        response = supabase.table("students").update(updated_student).eq("id_op", updated_student["id_op"]).execute()
+        response = supabase.table("students").update(data).execute()
         return response.data
     except Exception as e:
-        st.error("Chyba při aktualizaci studenta: " + str(e))
+        st.error("Chyba při ukládání studentů: " + str(e))
         return None
-
-def insert_student(new_student):
-    try:
-        response = supabase.table("students").insert(new_student).execute()
-        return response.data
-    except Exception as e:
-        st.error("Chyba při vkládání nového studenta: " + str(e))
-        return None
-
-def run_add_student():
-    st.header("Přidat nového studenta")
-    with st.form(key="add_student_form", clear_on_submit=True):
-        hodnost = st.selectbox("Hodnost", ["--", "svob.", "des.", "čet.", "rtn. Bc.", "rtm. Bc."], key="add_hodnost")
-        first_name = st.text_input("Jméno", key="add_first_name")
-        last_name = st.text_input("Příjmení", key="add_last_name")
-        date_of_birth = st.date_input("Datum narození", min_value=datetime.date(1960, 1, 1), key="add_dob")
-        address = st.text_input("Bydliště", key="add_address")
-        phone = st.text_input("Telefon", key="add_phone")
-        email = st.text_input("Email", key="add_email")
-        id_op = st.text_input("ID-OP", key="add_id_op")
-        id_sp = st.text_input("ID-SP", key="add_id_sp")
-        note = st.text_area("Poznámka", key="add_note")
-        study_type = st.selectbox("Typ studia", ["Prezenční", "Kombinované"], key="add_study_type")
-        cohorts = ["1. Bc.", "2. Bc.", "3. Bc.", "1. Mgr.", "2. Mgr."]
-        cohort = st.selectbox("Ročník", cohorts, key="add_cohort")
-        submitted = st.form_submit_button("Přidat studenta")
-        if submitted:
-            new_student = {
-                "hodnost": hodnost,
-                "first_name": first_name,
-                "last_name": last_name,
-                "date_of_birth": date_of_birth.strftime("%Y-%m-%d"),
-                "address": address,
-                "phone": phone,
-                "email": email,
-                "id_op": id_op,
-                "id_sp": id_sp,
-                "note": note,
-                "study_type": study_type,
-                "cohort": cohort,
-                "subjects": {},
-                "is_graduated": False
-            }
-            insert_student(new_student)
-            st.success("Nový student přidán!")
-            # Voláme rerun, pokud je experimental_rerun dostupné
-            try:
-                st.experimental_rerun()
-            except AttributeError:
-                pass
 
 def run_edit_student():
     st.header("Editace studenta")
@@ -85,16 +35,13 @@ def run_edit_student():
         return
 
     df = pd.DataFrame(students)
-    if df.empty:
-        st.info("Žádní studenti nejsou k dispozici ke změně.")
-        return
-
+    # Zobrazíme DataFrame bez sloupce "subjects"
     df_display = df.drop(columns=["subjects"], errors="ignore")
     st.dataframe(df_display, use_container_width=True)
     
     selected_index = st.selectbox(
         "Vyberte studenta ke změně",
-        options=list(df.index),
+        options=df.index,
         format_func=lambda i: f"{df.loc[i, 'hodnost']} {df.loc[i, 'first_name']} {df.loc[i, 'last_name']} ({df.loc[i, 'cohort']})",
         key="select_student_edit"
     )
@@ -123,6 +70,7 @@ def run_edit_student():
                                   key="edit_cohort")
         graduated = st.checkbox("Absolvent", value=selected_student.get("is_graduated", False), key="edit_graduated")
         submitted_edit = st.form_submit_button("Uložit změny")
+        
         if submitted_edit:
             updated_student = deepcopy(selected_student)
             updated_student.update({
@@ -140,26 +88,33 @@ def run_edit_student():
                 "cohort": new_cohort,
                 "is_graduated": graduated
             })
-            save_students(updated_student)
+            # Aktualizace studenta v databázi (zde se odesílá kompletní seznam)
+            # Pokud chcete aktualizovat jen konkrétního studenta, můžete využít i metodu update s eq("id_op", id)
+            # Zde použijeme logiku: najdeme studenta v seznamu a nahradíme jej
+            all_students = load_students()
+            for i, s in enumerate(all_students):
+                if s.get("id_op") == selected_student.get("id_op"):
+                    all_students[i] = updated_student
+                    break
+            save_students(all_students)
             st.success("Student upraven!")
             try:
                 st.experimental_rerun()
             except AttributeError:
                 pass
 
-def run_graduates():
-    st.header("Absolventi")
-    students = load_students()
-    graduates = [s for s in students if s.get("is_graduated", False)]
-    if not graduates:
-        st.info("Žádní absolventi nejsou evidováni.")
-        return
-    df = pd.DataFrame(graduates)
-    st.dataframe(df, use_container_width=True)
+    st.markdown("## Smazání studenta")
+    confirm_delete = st.checkbox("Opravdu smazat tohoto studenta?", key=f"confirm_delete_{selected_index}")
+    if confirm_delete:
+        if st.button("Smazat studenta", key="delete_student_edit"):
+            all_students = load_students()
+            updated_students = [s for s in all_students if s.get("id_op") != selected_student.get("id_op")]
+            save_students(updated_students)
+            st.success("Student smazán!")
+            try:
+                st.experimental_rerun()
+            except AttributeError:
+                pass
 
 if __name__ == "__main__":
-    # Pro testování odkomentujte jednu z funkcí:
-    # run_add_student()
-    # run_edit_student()
-    # run_graduates()
-    pass
+    run_edit_student()
