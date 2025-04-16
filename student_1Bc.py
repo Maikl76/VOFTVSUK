@@ -64,6 +64,7 @@ def run_student():
     if not cohort_students:
         st.info("Žádní studenti z tohoto ročníku nejsou zaregistrováni.")
         return
+
     df = pd.DataFrame(cohort_students)
     st.dataframe(df, use_container_width=True)
     
