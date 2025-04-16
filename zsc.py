@@ -47,7 +47,7 @@ def save_history(history):
     return response
 
 def run_zsc():
-    st.title("Evidence Zahraničních cest (ZSC)")
+    st.title("Zahraniční cesty")
     st.markdown("Evidence zahraničních cest pro aktuální rok")
     if st.button("Aktualizovat", key="zsc_update"):
         try:
