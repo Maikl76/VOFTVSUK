@@ -3,18 +3,42 @@ import json, os, datetime
 import pandas as pd
 from docx import Document
 from docx.shared import Pt, Inches
-from io import BytesIO
+from io import BytesIO, StringIO
 from streamlit_quill import st_quill  # WYSIWYG editor
 import csv
-from io import StringIO
 
 # ===== KONFIGURACE SUPABASE =====
 from supabase import create_client, Client
 # Nahraďte tyto hodnoty vašimi údaji
 SUPABASE_URL = "https://bgtpylewilzcqfqaoixx.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJndHB5bGV3aWx6Y3FmcWFvaXh4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQ1NzQxNTQsImV4cCI6MjA2MDE1MDE1NH0.6NutsH1g8k0ruhpylqltrWD53HQFy-ZQjcUN-SULktM"  # Zadejte svůj klíč
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJndHB5bGV3aWx6Y3FmcWFvaXh4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQ1NzQxNTQsImV4cCI6MjA2MDE1MDE1NH0.6NutsH1g8k0ruhpylqltrWD53HQFy-ZQjcUN-SULktM"
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 # =================================
+
+# Dummy moduly, pokud dpp, pri a zsc nejsou k dispozici
+try:
+    import dpp
+except ModuleNotFoundError:
+    class DummyDPP:
+        def run_dpp(self):
+            st.info("Modul DPP není k dispozici.")
+    dpp = DummyDPP()
+
+try:
+    import pri
+except ModuleNotFoundError:
+    class DummyPRI:
+        def run_pri(self, year):
+            st.info("Modul PRI není k dispozici.")
+    pri = DummyPRI()
+
+try:
+    import zsc
+except ModuleNotFoundError:
+    class DummyZSC:
+        def run_zsc(self):
+            st.info("Modul ZSC není k dispozici.")
+    zsc = DummyZSC()
 
 # Nastavení hesla – změňte dle potřeby
 PASSWORD = "1954"
@@ -241,329 +265,120 @@ def run_summary():
         processed_data = output.getvalue()
         st.download_button(label="Stáhnout Excel soubor", data=processed_data, file_name="Studenti_souhrn.xlsx", mime="application/vnd.ms-excel")
 
-# Import modulů pro studenty
-# V tomto příkladu používáme změněný modul student.py, který také komunikuje se Supabase.
-import student
-import student_1Bc, student_2Bc, student_3Bc, student_1Mgr, student_2Mgr
+# Importované funkce se budou volat z hlavní aplikace
+def run_add_student():
+    st.header("Přidat nového studenta")
+    with st.form(key="add_student_form", clear_on_submit=True):
+        hodnost = st.selectbox("Hodnost", ["--", "svob.", "des.", "čet.", "rtn. Bc.", "rtm. Bc."], key="add_hodnost")
+        first_name = st.text_input("Jméno", key="add_first_name")
+        last_name = st.text_input("Příjmení", key="add_last_name")
+        date_of_birth = st.date_input("Datum narození", min_value=datetime.date(1960, 1, 1), key="add_dob")
+        address = st.text_input("Bydliště", key="add_address")
+        phone = st.text_input("Telefon", key="add_phone")
+        email = st.text_input("Email", key="add_email")
+        id_op = st.text_input("ID-OP", key="add_id_op")
+        id_sp = st.text_input("ID-SP", key="add_id_sp")
+        note = st.text_area("Poznámka", key="add_note")
+        study_type = st.selectbox("Typ studia", ["Prezenční", "Kombinované"], key="add_study_type")
+        cohorts = ["1. Bc.", "2. Bc.", "3. Bc.", "1. Mgr.", "2. Mgr."]
+        cohort = st.selectbox("Ročník", cohorts, key="add_cohort")
+        submitted = st.form_submit_button("Přidat studenta")
+        if submitted:
+            new_student = {
+                "hodnost": hodnost,
+                "first_name": first_name,
+                "last_name": last_name,
+                "date_of_birth": date_of_birth.strftime("%Y-%m-%d"),
+                "address": address,
+                "phone": phone,
+                "email": email,
+                "id_op": id_op,
+                "id_sp": id_sp,
+                "note": note,
+                "study_type": study_type,
+                "cohort": cohort,
+                "subjects": {},
+                "is_graduated": False
+            }
+            insert_student(new_student)
+            st.success("Nový student přidán!")
+            st.experimental_rerun()
 
-with st.sidebar.expander("Nastavení položek vyhodnocení"):
-    selected_items = {}
-    for item in items:
-        st.markdown(f"#### {item}")
-        include = st.checkbox("Zobrazit", key=f"include_{item}")
-        finished = st.checkbox("Hotovo", key=f"finished_{item}")
-        if finished:
-            st.markdown(f"<span style='color: green;'>{item} - hotovo</span>", unsafe_allow_html=True)
-        selected_items[item] = include
-    st.markdown("---")
-    include_celkovy = st.checkbox("Zobrazit celkové vyhodnocení", key="include_celkovy")
-
-tabs = st.tabs(["Vyhodnocení VO FTVS UK", "Historie vyhodnocení", "DPP", "PR-I", "ZSC", "Student"])
-
-with tabs[0]:
-    st.header("Vyhodnocení VO FTVS UK")
-    current_year = st.number_input("Rok", min_value=2000, max_value=2100,
-                                   value=datetime.datetime.now().year, step=1)
-    selected_period = st.selectbox("Vyberte období", list(evaluation_periods.keys()))
-    period_range = evaluation_periods[selected_period]
-    st.write(f"Zvolená doba: {selected_period} ({period_range[0]} až {period_range[1]})")
-    key_period = f"{current_year}_{selected_period}"
-    saved_eval = st.session_state.evaluations.get(key_period, {})
-    if st.session_state.get("include_celkovy", False):
-        items_to_eval = items
+def run_edit_student():
+    st.header("Editace studenta")
+    students = load_students()
+    if students:
+        df = pd.DataFrame(students)
     else:
-        items_to_eval = [item for item in items if st.session_state.get(f"include_{item}", False)]
-    if not items_to_eval:
-        st.info("Vyberte prosím v postranním panelu alespoň jednu položku, kterou chcete vyhodnotit.")
-    else:
-        st.markdown("### Vyplňte nebo upravte již uložené vyhodnocení (pokud existuje)")
-        eval_data = {}
-        for item in items_to_eval:
-            if item == "Souhrnný přehled APVVP":
-                st.markdown("##### Nahrajte excel soubor s přehledem APVVP:")
-                if item in saved_eval and saved_eval[item].get("table"):
-                    st.info("Nahraný soubor byl již uložen:")
-                    st.table(saved_eval[item]["table"])
-                    if st.button("Smazat nahraný soubor", key="delete_apvvp"):
-                        saved_eval[item]["table"] = None
-                        st.session_state.evaluations[key_period] = saved_eval
-                        # Uložíme do Supabase – předpokládáme, že evaluace se uloží aktualizací řádku s ID 1
-                        save_evaluations(st.session_state.evaluations)
-                        st.success("Nahraný soubor byl smazán.")
-                uploaded_file = st.file_uploader("Vyberte soubor", type=["xlsx"], key="upload_apvvp")
-                table_data = None
-                if uploaded_file is not None:
-                    try:
-                        df_tmp = pd.read_excel(uploaded_file)
-                        df_tmp = df_tmp.fillna("").astype(str)
-                        st.dataframe(df_tmp)
-                        table_data = [list(df_tmp.columns)] + df_tmp.values.tolist()
-                    except Exception as e:
-                        st.error("Chyba při načítání excel souboru.")
-                eval_data[item] = {"table": table_data if table_data is not None else saved_eval.get(item, {}).get("table")}
-            elif item == "Ekonomika":
-                st.markdown("##### Nahrajte excel soubor pro Ekonomiku:")
-                if item in saved_eval and saved_eval[item].get("table"):
-                    st.info("Nahraný soubor byl již uložen:")
-                    st.table(saved_eval[item]["table"])
-                uploaded_file = st.file_uploader("Vyberte soubor", type=["xlsx"], key="upload_ekonomika")
-                table_data = None
-                if uploaded_file is not None:
-                    try:
-                        df_tmp = pd.read_excel(uploaded_file)
-                        df_tmp = df_tmp.fillna("").astype(str)
-                        st.dataframe(df_tmp)
-                        table_data = [list(df_tmp.columns)] + df_tmp.values.tolist()
-                    except Exception as e:
-                        st.error("Chyba při načítání excel souboru pro Ekonomiku.")
-                default_text = saved_eval.get(item, {}).get("text", "")
-                st.markdown("Vyhodnocení pro Ekonomiku:")
-                text = st_quill(key=f"eval_{current_year}_{selected_period}_{item}", value=default_text)
-                default_finished = saved_eval.get(item, {}).get("finished", False)
-                finished_flag = st.checkbox("Hotovo", key=f"finished_form_{current_year}_{selected_period}_{item}", value=default_finished)
-                eval_data[item] = {"table": table_data if table_data is not None else saved_eval.get(item, {}).get("table"),
-                                    "text": text, "finished": finished_flag}
-            else:
-                default_text = saved_eval.get(item, {}).get("text", "")
-                st.markdown(f"Vyhodnocení pro {item}:")
-                text = st_quill(key=f"eval_{current_year}_{selected_period}_{item}", value=default_text)
-                default_finished = saved_eval.get(item, {}).get("finished", False)
-                finished_flag = st.checkbox("Hotovo", key=f"finished_form_{current_year}_{selected_period}_{item}", value=default_finished)
-                eval_data[item] = {"text": text, "finished": finished_flag}
-        if st.button("Uložit vyhodnocení", key="save_eval"):
-            st.session_state.evaluations[key_period] = eval_data
-            save_evaluations(st.session_state.evaluations)
-            st.success("Vyhodnocení uloženo!")
-        
-        st.subheader("Generování dokumentů")
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("Generovat Word dokument", key="gen_word"):
-                try:
-                    intro_path = "upload/Úvodní strana vyhodnocení.docx"
-                    if os.path.exists(intro_path):
-                        intro_doc = Document(intro_path)
-                    else:
-                        st.error("Soubor Úvodní strana vyhodnocení.docx nebyl nalezen v adresáři upload.")
-                        intro_doc = Document()
-                    
-                    eval_doc = Document()
-                    eval_doc.add_heading(f"Vyhodnocení za: {selected_period} roku {current_year}", level=0)
-                    eval_doc.add_page_break()
-                    
-                    # Předpokládáme, že items_to_eval byly definovány
-                    doc_items = items if st.session_state.get("include_celkovy", False) else [item for item in items if st.session_state.get(f"include_{item}", False)]
-                    
-                    for idx, item in enumerate(doc_items):
-                        data = st.session_state.evaluations.get(key_period, {}).get(item, {})
-                        if idx < 6:
-                            if item == "VŠ vzdělávání":
-                                vs_text = (
-                                    "2. Vyhodnocení plnění dílčích úkolů „Ročního plánu VO FTVS UK na rok 202X“ dle stanovené metodiky měření\n\n"
-                                    "Název cíle 3. úrovně \n"
-                                    "120302 \tZajistit optimální podmínky pro vzdělávání a permanentní rozvoj znalostí a dovedností personálu v souladu s potřebami rezortu MO\n\n"
-                                    "Opatření a úkoly k dosažení cíle \n"
-                                    "Opatření \n"
-                                    "12030201 Vysokoškolské vzdělávání personálu pro potřeby rezortu MO \n"
-                                    "Úkol \n"
-                                    "12030201 Komplexně realizovat studijní a pedagogickou činnost v akreditovaných programech na VO FTVS UK\n"
-                                    "Dílčí úkol \n"
-                                    "1203020102 Komplexně realizovat studijní a pedagogickou činnost v bakalářském a navazujícím magisterském studijním programu na VO \n"
-                                    "FTVS UK\n"
-                                    "Dílčí úkol \n"
-                                    "120302010201 Harmonogram akademického roku 2023/2024\n"
-                                    "Opatření\n"
-                                    "120302010202 Zabezpečit vojenskou činnost a chod VO FTVS UK\n\n"
-                                    "V rámci dílčího úkolu plnit tyto hlavní úkoly:\n\n"
-                                    "2.1 Zabezpečit vysokoškolské vzdělávání"
-                                )
-                                eval_doc.add_paragraph(vs_text)
-                            custom_heading = custom_headings.get(item, item)
-                            eval_doc.add_heading(custom_heading, level=2)
-                        elif idx == 6:
-                            eval_doc.add_heading("2.2 Zabezpečit činnost VO FTVS UK", level=2)
-                            eval_doc.add_heading("Dílčí úkol", level=3)
-                            eval_doc.add_paragraph("120302010202 Zabezpečit vojenskou činnost a chod VO FTVS UK")
-                            custom_heading = custom_headings.get(item, item)
-                            eval_doc.add_heading(custom_heading, level=2)
-                        else:
-                            custom_heading = custom_headings.get(item, item)
-                            eval_doc.add_heading(custom_heading, level=2)
-                        
-                        if item in ["Souhrnný přehled APVVP", "Ekonomika"] and data.get("table"):
-                            table_data = data["table"]
-                            if table_data:
-                                rows = len(table_data)
-                                cols = len(table_data[0])
-                                table = eval_doc.add_table(rows=rows, cols=cols)
-                                for i, row in enumerate(table_data):
-                                    for j, cell_value in enumerate(row):
-                                        table.cell(i, j).text = str(cell_value)
-                                format_table(table, font_size=10)
-                        if data.get("text"):
-                            eval_doc.add_paragraph(data.get("text", ""))
-                    
-                    from docxcompose.composer import Composer
-                    composer = Composer(intro_doc)
-                    composer.append(eval_doc)
-                    
-                    buffer = BytesIO()
-                    composer.save(buffer)
-                    buffer.seek(0)
-                    st.download_button(
-                        label="Stáhnout Word dokument",
-                        data=buffer.getvalue(),
-                        file_name="Vyhodnoceni.docx",
-                        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                        key="download_word"
-                    )
-                except Exception as e:
-                    st.error(f"Chyba při generování Word dokumentu: {e}")
-        
-        with col2:
-            if st.button("Generovat PDF dokument", key="gen_pdf"):
-                from reportlab.platypus import SimpleDocTemplate, Paragraph, Table, Spacer
-                from reportlab.lib.pagesizes import letter
-                from reportlab.lib.styles import getSampleStyleSheet
-                from reportlab.lib import colors
-                from reportlab.pdfbase import pdfmetrics
-                from reportlab.pdfbase.ttfonts import TTFont
+        df = pd.DataFrame(columns=["hodnost", "first_name", "last_name", "date_of_birth",
+                                   "address", "phone", "email", "id_op", "id_sp", "note",
+                                   "study_type", "cohort", "subjects", "is_graduated"])
+    df_display = df.drop(columns=["subjects"], errors="ignore")
+    st.dataframe(df_display, use_container_width=True)
+    
+    selected_index = st.selectbox(
+        "Vyberte studenta ke změně",
+        options=df.index,
+        format_func=lambda i: f"{df.loc[i, 'hodnost']} {df.loc[i, 'first_name']} {df.loc[i, 'last_name']} ({df.loc[i, 'cohort']})",
+        key="select_student_edit"
+    )
+    selected_student = df.loc[selected_index].to_dict()
+    with st.form(key="edit_student_form"):
+        new_hodnost = st.selectbox("Hodnost", ["--", "svob.", "des.", "čet.", "rtn. Bc.", "rtm. Bc."],
+                                   index=["--", "svob.", "des.", "čet.", "rtn. Bc.", "rtm. Bc."].index(selected_student.get("hodnost", "svob.")),
+                                   key="edit_hodnost")
+        new_first_name = st.text_input("Jméno", value=selected_student.get("first_name", ""), key="edit_first_name")
+        new_last_name = st.text_input("Příjmení", value=selected_student.get("last_name", ""), key="edit_last_name")
+        dob_default = datetime.datetime.strptime(selected_student.get("date_of_birth"), "%Y-%m-%d") if selected_student.get("date_of_birth") else datetime.datetime.now()
+        new_dob = st.date_input("Datum narození", value=dob_default, min_value=datetime.date(1960, 1, 1), key="edit_dob")
+        new_address = st.text_input("Bydliště", value=selected_student.get("address", ""), key="edit_address")
+        new_phone = st.text_input("Telefon", value=selected_student.get("phone", ""), key="edit_phone")
+        new_email = st.text_input("Email", value=selected_student.get("email", ""), key="edit_email")
+        new_id_op = st.text_input("ID-OP", value=selected_student.get("id_op", ""), key="edit_id_op")
+        new_id_sp = st.text_input("ID-SP", value=selected_student.get("id_sp", ""), key="edit_id_sp")
+        new_note = st.text_area("Poznámka", value=selected_student.get("note", ""), key="edit_note")
+        new_study_type = st.selectbox("Typ studia", ["Prezenční", "Kombinované"],
+                                      index=["Prezenční", "Kombinované"].index(selected_student.get("study_type", "Prezenční")),
+                                      key="edit_study_type")
+        cohorts = ["1. Bc.", "2. Bc.", "3. Bc.", "1. Mgr.", "2. Mgr."]
+        new_cohort = st.selectbox("Ročník", cohorts,
+                                  index=cohorts.index(selected_student.get("cohort", cohorts[0])),
+                                  key="edit_cohort")
+        graduated = st.checkbox("Absolvent", value=selected_student.get("is_graduated", False), key="edit_graduated")
+        submitted_edit = st.form_submit_button("Uložit změny")
+        if submitted_edit:
+            updated_student = deepcopy(selected_student)
+            updated_student.update({
+                "hodnost": new_hodnost,
+                "first_name": new_first_name,
+                "last_name": new_last_name,
+                "date_of_birth": new_dob.strftime("%Y-%m-%d"),
+                "address": new_address,
+                "phone": new_phone,
+                "email": new_email,
+                "id_op": new_id_op,
+                "id_sp": new_id_sp,
+                "note": new_note,
+                "study_type": new_study_type,
+                "cohort": new_cohort,
+                "is_graduated": graduated
+            })
+            save_students(updated_student)
+            st.success("Student upraven!")
+            st.experimental_rerun()
 
-                try:
-                    pdfmetrics.registerFont(TTFont('TimesNewRoman', 'Times New Roman.ttf'))
-                    pdfmetrics.registerFont(TTFont('TimesNewRoman-Bold', 'Times New Roman Bold.ttf'))
-                except Exception as e:
-                    st.error("Chyba při registraci fontů pro PDF dokument.")
-                
-                buffer = BytesIO()
-                doc_pdf = SimpleDocTemplate(buffer, pagesize=letter)
-                styles = getSampleStyleSheet()
-                style_heading = styles['Heading1']
-                style_heading_item = styles['Heading2']
-                style_normal = styles['Normal']
-                story = []
-                story.append(Paragraph(f"Vyhodnocení za: {selected_period} roku {current_year}", style_heading))
-                for idx, item in enumerate(doc_items if st.session_state.get("include_celkovy", False) else items_to_eval):
-                    data = st.session_state.evaluations.get(key_period, {}).get(item, {})
-                    if idx < 6:
-                        if item == "VŠ vzdělávání":
-                            vs_text = ("2. Vyhodnocení plnění dílčích úkolů „Ročního plánu VO FTVS UK na rok 202X“ dle stanovené metodiky měření\n\n"
-                                       "Název cíle 3. úrovně \n"
-                                       "120302 \tZajistit optimální podmínky pro vzdělávání a permanentní rozvoj znalostí a dovedností personálu v souladu s potřebami rezortu MO\n\n"
-                                       "Opatření a úkoly k dosažení cíle \n"
-                                       "Opatření \n"
-                                       "12030201 Vysokoškolské vzdělávání personálu pro potřeby rezortu MO \n"
-                                       "Úkol \n"
-                                       "12030201 Komplexně realizovat studijní a pedagogickou činnost v akreditovaných programech na VO FTVS UK\n"
-                                       "Dílčí úkol \n"
-                                       "1203020102 Komplexně realizovat studijní a pedagogickou činnost v bakalářském a navazujícím magisterském studijním programu na VO \n"
-                                       "FTVS UK\n"
-                                       "Dílčí úkol \n"
-                                       "120302010201 Harmonogram akademického roku 2023/2024\n"
-                                       "Opatření\n"
-                                       "120302010202 Zabezpečit vojenskou činnost a chod VO FTVS UK\n\n"
-                                       "V rámci dílčího úkolu plnit tyto hlavní úkoly:\n\n"
-                                       "2.1 Zabezpečit vysokoškolské vzdělávání")
-                            story.append(Paragraph(vs_text, style_normal))
-                        custom_heading = custom_headings.get(item, item)
-                        story.append(Paragraph(custom_heading, style_heading_item))
-                    elif idx == 6:
-                        story.append(Paragraph("2.2 Zabezpečit činnost VO FTVS UK", style_heading_item))
-                        story.append(Paragraph("Dílčí úkol", styles['Heading3']))
-                        story.append(Paragraph("120302010202 Zabezpečit vojenskou činnost a chod VO FTVS UK", style_normal))
-                        custom_heading = custom_headings.get(item, item)
-                        story.append(Paragraph(custom_heading, style_heading_item))
-                    else:
-                        custom_heading = custom_headings.get(item, item)
-                        story.append(Paragraph(custom_heading, style_heading_item))
-                    
-                    if item in ["Souhrnný přehled APVVP", "Ekonomika"] and data.get("table"):
-                        table_data = data["table"]
-                        if table_data:
-                            rows = len(table_data)
-                            cols = len(table_data[0])
-                            table = eval_doc.add_table(rows=rows, cols=cols)
-                            for i, row in enumerate(table_data):
-                                for j, cell_value in enumerate(row):
-                                    table.cell(i, j).text = str(cell_value)
-                            format_table(table, font_size=10)
-                    if data.get("text"):
-                        story.append(Paragraph(data.get("text", ""), style_normal))
-                doc_pdf.build(story)
-                st.download_button(
-                    label="Stáhnout PDF dokument",
-                    data=buffer.getvalue(),
-                    file_name="Vyhodnoceni.pdf",
-                    mime="application/pdf",
-                    key="download_pdf"
-                )
+def run_graduates():
+    st.header("Absolventi")
+    students = load_students()
+    graduates = [s for s in students if s.get("is_graduated", False)]
+    if not graduates:
+        st.info("Žádní absolventi nejsou evidováni.")
+        return
+    df = pd.DataFrame(graduates)
+    st.dataframe(df, use_container_width=True)
 
-with tabs[1]:
-    st.header("Historie vyhodnocení")
-    hist_year = st.number_input("Zvolte rok", min_value=2000, max_value=2100,
-                                  value=datetime.datetime.now().year, step=1, key="hist_year")
-    hist_period = st.selectbox("Vyberte období", list(evaluation_periods.keys()), key="hist_period")
-    key = f"{hist_year}_{hist_period}"
-    if key in st.session_state.evaluations:
-        st.subheader(f"Vyhodnocení za {key}")
-        evals = st.session_state.evaluations[key]
-        for item, data in evals.items():
-            finished_mark = " (hotovo)" if data.get("finished") else ""
-            st.markdown(f"### {item}{finished_mark}")
-            if item == "Souhrnný přehled APVVP" and data.get("table") and len(data["table"]) > 0:
-                st.table(data["table"])
-            elif item == "Ekonomika" and data.get("table") and len(data["table"]) > 0:
-                st.table(data["table"])
-                st.write(data.get("text", ""))
-            else:
-                st.write(data.get("text", ""))
-    else:
-        st.info("Pro zvolený rok a období nejsou uložena žádná vyhodnocení.")
-
-with tabs[2]:
-    dpp.run_dpp()
-
-with tabs[3]:
-    selected_year = st.number_input("Zvolte aktuální rok pro evidenci PR-I", 
-                                    min_value=2000, max_value=2100, 
-                                    value=datetime.datetime.now().year, step=1)
-    pri.run_pri(selected_year)
-
-with tabs[4]:
-    zsc.run_zsc()
-
-with tabs[5]:
-    st.header("Student")
-    if st.button("Aktualizovat data"):
-        from streamlit.runtime.scriptrunner import RerunException, RerunData
-        raise RerunException(RerunData(st.query_params))
-    student_subtabs = st.tabs(["Vojenské předměty", "Přidat studenta", "Editace studenta", "Absolventi"])
-    with student_subtabs[0]:
-        st.subheader("Vojenské předměty")
-        cohort_tabs = st.tabs(["První ročník", "Druhý ročník", "Třetí ročník", "Čtvrtý ročník", "Pátý ročník", "Souhrn"])
-        with cohort_tabs[0]:
-            import student_1Bc
-            student_1Bc.run_student()
-        with cohort_tabs[1]:
-            import student_2Bc
-            student_2Bc.run_student()
-        with cohort_tabs[2]:
-            import student_3Bc
-            student_3Bc.run_student()
-        with cohort_tabs[3]:
-            import student_1Mgr
-            student_1Mgr.run_student()
-        with cohort_tabs[4]:
-            import student_2Mgr
-            student_2Mgr.run_student()
-        with cohort_tabs[5]:
-            run_summary()
-    with student_subtabs[1]:
-        import student
-        student.run_add_student()
-    with student_subtabs[2]:
-        import student
-        student.run_edit_student()
-    with student_subtabs[3]:
-        import student
-        student.run_graduates()
+if __name__ == "__main__":
+    # Pro testování odkomentujte jednu z funkcí:
+    # run_add_student()
+    # run_edit_student()
+    # run_graduates()
