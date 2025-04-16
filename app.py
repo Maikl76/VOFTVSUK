@@ -14,7 +14,7 @@ from streamlit_quill import st_quill  # WYSIWYG editor
 # ===== KONFIGURACE SUPABASE =====
 from supabase import create_client, Client
 SUPABASE_URL = "https://bgtpylewilzcqfqaoixx.supabase.co"
-SUPABASE_KEY = "YOUR_SUPABASE_KEY"  # Nahraďte vaším skutečným klíčem
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJndHB5bGV3aWx6Y3FmcWFvaXh4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQ1NzQxNTQsImV4cCI6MjA2MDE1MDE1NH0.6NutsH1g8k0ruhpylqltrWD53HQFy-ZQjcUN-SULktM"  # Nahraďte vaším skutečným klíčem
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 # =================================
 
