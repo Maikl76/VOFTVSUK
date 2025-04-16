@@ -76,22 +76,26 @@ def run_add_student():
 def run_edit_student():
     st.header("Editace studenta")
     students = load_students()
-    if students:
-        df = pd.DataFrame(students)
-    else:
-        df = pd.DataFrame(columns=["hodnost", "first_name", "last_name", "date_of_birth",
-                                   "address", "phone", "email", "id_op", "id_sp", "note",
-                                   "study_type", "cohort", "subjects", "is_graduated"])
+    if not students:
+        st.info("Žádní studenti nejsou k dispozici ke změně.")
+        return
+
+    df = pd.DataFrame(students)
+    if df.empty:
+        st.info("Žádní studenti nejsou k dispozici ke změně.")
+        return
+
     df_display = df.drop(columns=["subjects"], errors="ignore")
     st.dataframe(df_display, use_container_width=True)
     
     selected_index = st.selectbox(
         "Vyberte studenta ke změně",
-        options=df.index,
+        options=list(df.index),
         format_func=lambda i: f"{df.loc[i, 'hodnost']} {df.loc[i, 'first_name']} {df.loc[i, 'last_name']} ({df.loc[i, 'cohort']})",
         key="select_student_edit"
     )
     selected_student = df.loc[selected_index].to_dict()
+    
     with st.form(key="edit_student_form"):
         new_hodnost = st.selectbox("Hodnost", ["--", "svob.", "des.", "čet.", "rtn. Bc.", "rtm. Bc."],
                                    index=["--", "svob.", "des.", "čet.", "rtn. Bc.", "rtm. Bc."].index(selected_student.get("hodnost", "svob.")),
