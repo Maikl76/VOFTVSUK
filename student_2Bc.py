@@ -119,19 +119,4 @@ def run_student():
                     let_spt2_chk = st.checkbox(subj, value=current_student["subjects"]["letni"]["Speciální TP-II"].get(subj, {}).get("completed", False),
                                                key="2Bc_let_SPT2_" + subj)
                 with col2:
-                    let_spt2_teacher = st.text_input("Učitel, který zapsal", value=current_student["subjects"]["letni"]["Speciální TP-II"].get(subj, {}).get("teacher", ""),
-                                                      key="2Bc_let_SPT2_" + subj + "_teacher", max_chars=10)
-                current_student["subjects"]["letni"]["Speciální TP-II"][subj] = {"completed": let_spt2_chk, "teacher": let_spt2_teacher}
-            cond_spt2 = all(current_student["subjects"]["letni"]["Speciální TP-II"][s]["completed"] for s in subject_list2)
-            st.markdown("Splněno: **" + ("ANO" if cond_spt2 else "NE") + "**")
-    
-    if st.button("Uložit hodnocení", key="save_2Bc_" + str(current_student.get("id_op", ""))):
-        save_student_record(current_student)
-        st.success("Hodnocení uloženo!")
-        try:
-            st.experimental_rerun()
-        except AttributeError:
-            pass
-
-if __name__ == "__main__":
-    run_student()
+                    let_spt2_teacher = st.text_input("Učitel, který zapsal", value=current_student["subjects"]["letni"]["Speciální TP-II"].get(subj, {}).get("teacher
