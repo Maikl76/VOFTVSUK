@@ -3,7 +3,6 @@ import pandas as pd
 import datetime
 from copy import deepcopy
 from supabase import create_client, Client
-import json, os
 
 st.markdown("""
 <style>
