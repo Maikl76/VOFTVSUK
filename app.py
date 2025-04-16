@@ -1,8 +1,8 @@
 import streamlit as st
 st.set_page_config(layout="wide", page_title="Vojenský obor FTVS UK")  # Musí být první streamlit příkaz!
 
-import json
 import os
+import json
 import datetime
 import pandas as pd
 import csv
@@ -14,7 +14,7 @@ from streamlit_quill import st_quill  # WYSIWYG editor
 # ===== KONFIGURACE SUPABASE =====
 from supabase import create_client, Client
 SUPABASE_URL = "https://bgtpylewilzcqfqaoixx.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJndHB5bGV3aWx6Y3FmcWFvaXh4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQ1NzQxNTQsImV4cCI6MjA2MDE1MDE1NH0.6NutsH1g8k0ruhpylqltrWD53HQFy-ZQjcUN-SULktM"  # Nahraďte vaším skutečným klíčem
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJndHB5bGV3aWx6Y3FmcWFvaXh4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQ1NzQxNTQsImV4cCI6MjA2MDE1MDE1NH0.6NutsH1g8k0ruhpylqltrWD53HQFy-ZQjcUN-SULktM"  # Nahraďte svým skutečným klíčem
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 # =================================
 
@@ -43,13 +43,33 @@ except ModuleNotFoundError:
             st.info("Modul ZSC není k dispozici.")
     zsc = DummyZSC()
 
-# Sidebar – přidáme základní obsah, aby byl sidebar zobrazen
-with st.sidebar:
-    st.header("Menu")
-    st.write("Zde můžete přidat další nastavení či navigaci.")
+# Sidebar – expander s nastavením položek vyhodnocení
+with st.sidebar.expander("Nastavení položek vyhodnocení"):
+    selected_items = {}
+    items = [
+        "Souhrnný přehled APVVP",
+        "VŠ vzdělávání",
+        "Přijímačky",
+        "Akreditace",
+        "Vědecká činnost",
+        "Zahraniční spolupráce",
+        "Personální oblast",
+        "Logistika",
+        "Ekonomika",
+        "Odborné kurzy",
+        "Vojenská příprava",
+        "Jazykové vzdělávání"
+    ]
+    for item in items:
+        st.markdown(f"#### {item}")
+        include = st.checkbox("Zobrazit", key=f"include_{item}")
+        finished = st.checkbox("Hotovo", key=f"finished_{item}")
+        if finished:
+            st.markdown(f"<span style='color: green;'>{item} - hotovo</span>", unsafe_allow_html=True)
+        selected_items[item] = include
     st.markdown("---")
-    # Můžete zde přidat další volby, např. filtrování nebo informace o aplikaci.
-    st.info("Příklad: Nastavení vyhodnocení, informace o projektu apod.")
+    include_celkovy = st.checkbox("Zobrazit celkové vyhodnocení", key="include_celkovy")
+    st.write("")
 
 # Nastavení hesla
 PASSWORD = "1954"
@@ -70,10 +90,11 @@ if not st.session_state["authenticated"]:
 # Hlavička – logo a název
 col1, col2 = st.columns([1, 6])
 with col1:
-    st.image("Logo.png", width=50)  # Upravte cestu či velikost dle potřeby
+    st.image("Logo.png", width=50)  # Upravte podle potřeby
 with col2:
     st.markdown("<h1 style='margin-bottom: 0;'>Vojenský obor FTVS UK</h1>", unsafe_allow_html=True)
 
+# Custom CSS
 st.markdown(
     """
     <style>
@@ -97,7 +118,7 @@ def format_table(doc_table, font_size=10):
                 for run in paragraph.runs:
                     run.font.size = Pt(font_size)
 
-# Funkce pro práci s evaluacemi pomocí Supabase
+# Funkce pro evaluace pomocí Supabase
 def load_evaluations():
     response = supabase.table("evaluations").select("data").eq("id", 1).execute()
     if response.data and "data" in response.data[0]:
@@ -119,66 +140,7 @@ evaluation_periods = {
     "Celý rok": ("1. leden", "31. prosinec")
 }
 
-items = [
-    "Souhrnný přehled APVVP",
-    "VŠ vzdělávání",
-    "Přijímačky",
-    "Akreditace",
-    "Vědecká činnost",
-    "Zahraniční spolupráce",
-    "Personální oblast",
-    "Logistika",
-    "Ekonomika",
-    "Odborné kurzy",
-    "Vojenská příprava",
-    "Jazykové vzdělávání"
-]
-
-custom_headings = {
-    "Souhrnný přehled APVVP": "1. Souhrnný přehled o stavu plnění opatření, úkolů a dílčích úkolů – APV VP",
-    "VŠ vzdělávání": "2.1.1 Vysokoškolské vzdělávání personálu pro potřeby rezortu MO",
-    "Přijímačky": "2.1.2 Přijmout stanovené množství studentů podle požadavku rezortu MO",
-    "Akreditace": "2.1.3 Akreditované studijní programy",
-    "Vědecká činnost": "2.1.4 Vědecká činnost",
-    "Zahraniční spolupráce": "2.1.5 Spolupracovat s vysokými školami a zajistit zahraniční styky",
-    "Personální oblast": "2.2.1 Zabezpečit personální oblast VO FTVS UK",
-    "Logistika": "2.2.2 Realizovat logistické zabezpečení VO FTVS UK",
-    "Ekonomika": "2.2.3 Zabezpečit ekonomickou oblast VO FTVS UK",
-    "Odborné kurzy": "2.2.5 Realizovat odborné a kariérové kurzy u VO FTVS UK",
-    "Vojenská příprava": "2.2.6 Zabezpečit vojenskou oblast VO FTVS UK",
-    "Jazykové vzdělávání": "2.2.7 Realizovat jazykové vzdělávání"
-}
-
-def run_summary():
-    st.header("Souhrn všech studentů")
-    try:
-        response = supabase.table("students").select("*").execute()
-        students = response.data or []
-    except Exception as e:
-        st.error("Chyba při načítání studentů: " + str(e))
-        return
-    if not students:
-        st.info("Žádní studenti nejsou zaregistrováni.")
-        return
-    base_cols = ["Hodnost", "Jméno", "Příjmení", "Ročník", "Kohorta"]
-    summary_records = []
-    for s in students:
-        base = {
-            "Hodnost": s.get("hodnost", ""),
-            "Jméno": s.get("first_name", ""),
-            "Příjmení": s.get("last_name", ""),
-            "Ročník": s.get("cohort", ""),
-            "Kohorta": s.get("study_type", "")
-        }
-        summary_records.append(base)
-    df = pd.DataFrame(summary_records, columns=base_cols)
-    st.dataframe(df, use_container_width=True)
-    if st.button("Exportovat do Excelu"):
-        buffer = BytesIO()
-        with pd.ExcelWriter(buffer, engine="xlsxwriter") as writer:
-            df.to_excel(writer, index=False, sheet_name="Studenti")
-        st.download_button(label="Stáhnout Excel soubor", data=buffer.getvalue(), file_name="Studenti_souhrn.xlsx", mime="application/vnd.ms-excel")
-
+# Hlavní záložky
 tabs = st.tabs(["Vyhodnocení VO FTVS UK", "Historie vyhodnocení", "DPP", "PR-I", "ZSC", "Student"])
 
 with tabs[0]:
@@ -190,15 +152,15 @@ with tabs[0]:
     key_period = f"{current_year}_{selected_period}"
     saved_eval = st.session_state.evaluations.get(key_period, {})
     if st.session_state.get("include_celkovy", False):
-        items_to_eval = items
+        eval_items = items
     else:
-        items_to_eval = [item for item in items if st.session_state.get(f"include_{item}", False)]
-    if not items_to_eval:
+        eval_items = [item for item in items if st.session_state.get(f"include_{item}", False)]
+    if not eval_items:
         st.info("Vyberte alespoň jednu položku v postranním panelu.")
     else:
         st.markdown("### Vyplňte nebo upravte vyhodnocení")
         eval_data = {}
-        for item in items_to_eval:
+        for item in eval_items:
             default_text = saved_eval.get(item, {}).get("text", "")
             st.markdown(f"Vyhodnocení pro {item}:")
             text = st_quill(key=f"eval_{current_year}_{selected_period}_{item}", value=default_text)
