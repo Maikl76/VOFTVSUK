@@ -1,9 +1,9 @@
 import streamlit as st
 import pandas as pd
-import json, os, datetime
+import datetime
 from copy import deepcopy
+from supabase import create_client, Client
 
-# CSS pro omezení šířky vstupních polí
 st.markdown("""
 <style>
 .stTextInput>div>div>input {
@@ -12,18 +12,26 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-DATA_FILE = "students.json"
+# Inicializace Supabase klienta
+SUPABASE_URL = "https://bgtpylewilzcqfqaoixx.supabase.co"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJndHB5bGV3aWx6Y3FmcWFvaXh4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQ1NzQxNTQsImV4cCI6MjA2MDE1MDE1NH0.6NutsH1g8k0ruhpylqltrWD53HQFy-ZQjcUN-SULktM"
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 def load_students():
-    if os.path.exists(DATA_FILE):
-        with open(DATA_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
-    else:
+    try:
+        response = supabase.table("students").select("*").execute()
+        return response.data or []
+    except Exception as e:
+        st.error("Chyba při načítání studentů: " + str(e))
         return []
 
-def save_students(data):
-    with open(DATA_FILE, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=4)
+def save_student_record(student):
+    try:
+        response = supabase.table("students").update(student).eq("id_op", student["id_op"]).execute()
+        return response.data
+    except Exception as e:
+        st.error("Chyba při ukládání: " + str(e))
+        return None
 
 default_structure_2Bc = {
     "zimni": {
@@ -56,10 +64,8 @@ def run_student():
     if not cohort_students:
         st.info("Žádní studenti z tohoto ročníku nejsou zaregistrováni.")
         return
-
     df = pd.DataFrame(cohort_students)
     st.dataframe(df, use_container_width=True)
-    
     selected_idx = st.selectbox("Vyberte studenta", options=df.index,
                                 format_func=lambda i: f"{df.loc[i, 'hodnost']} {df.loc[i, 'first_name']} {df.loc[i, 'last_name']}")
     current_student = deepcopy(cohort_students[selected_idx])
@@ -70,13 +76,9 @@ def run_student():
             current_student["subjects"].setdefault(sem, {})
             for subj, details in default_structure_2Bc[sem].items():
                 current_student["subjects"][sem].setdefault(subj, deepcopy(details))
-    
     st.markdown("## Předmětové hodnocení")
-
-    # Rozložení do dvou sloupců: levý pro Zimní semestr a pravý pro Letní semestr
     col_left, col_right = st.columns(2)
-
-    ## Levý sloupec – Zimní semestr
+    
     with col_left:
         st.subheader("Zimní semestr")
         st.markdown("#### Základy STP-II")
@@ -93,8 +95,7 @@ def run_student():
                 current_student["subjects"]["zimni"]["Základy STP-II"][subj] = {"completed": zim_chk, "teacher": zim_teacher}
             cond_zim = all(current_student["subjects"]["zimni"]["Základy STP-II"][s]["completed"] for s in subject_list)
             st.markdown("Splněno: **" + ("ANO" if cond_zim else "NE") + "**")
-
-    ## Pravý sloupec – Letní semestr
+    
     with col_right:
         st.subheader("Letní semestr")
         st.markdown("### Teorie a didaktika AČR-II")
@@ -125,12 +126,7 @@ def run_student():
             st.markdown("Splněno: **" + ("ANO" if cond_spt2 else "NE") + "**")
     
     if st.button("Uložit hodnocení", key="save_2Bc_" + str(current_student.get("id_op", ""))):
-        students_list = load_students()
-        for i, s in enumerate(students_list):
-            if s.get("id_op") == current_student.get("id_op"):
-                students_list[i] = current_student
-                break
-        save_students(students_list)
+        save_student_record(current_student)
         st.success("Hodnocení uloženo!")
         try:
             st.experimental_rerun()
