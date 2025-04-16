@@ -12,9 +12,8 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Inicializace Supabase klienta
 SUPABASE_URL = "https://bgtpylewilzcqfqaoixx.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJndHB5bGV3aWx6Y3FmcWFvaXh4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQ1NzQxNTQsImV4cCI6MjA2MDE1MDE1NH0.6NutsH1g8k0ruhpylqltrWD53HQFy-ZQjcUN-SULktM"
+SUPABASE_KEY = "YOUR_SUPABASE_KEY"
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 def load_students():
@@ -84,10 +83,8 @@ def run_student():
             current_student["subjects"].setdefault(sem, {})
             for subj, details in default_structure_1Mgr[sem].items():
                 current_student["subjects"][sem].setdefault(subj, deepcopy(details))
-    
     st.markdown("## Předmětové hodnocení")
     col_left, col_right = st.columns(2)
-    
     with col_left:
         st.subheader("Zimní semestr")
         st.markdown("#### Teorie a didaktika AČR-1")
@@ -99,19 +96,6 @@ def run_student():
                 zim_teacher = st.text_input("Učitel, který zapsal", value=current_student["subjects"]["zimni"]["Teorie a didaktika AČR-1"].get("teacher", ""), key="1Mgr_zim_TACR1_teacher", max_chars=10)
             current_student["subjects"]["zimni"]["Teorie a didaktika AČR-1"] = {"completed": zim_chk, "teacher": zim_teacher}
             st.markdown("Splněno: **" + ("ANO" if zim_chk else "NE") + "**")
-            
-        st.markdown("#### Základy STP-1")
-        with st.expander("Detail hodnocení", expanded=True):
-            for subj in ["Vojenské lezení", "Boj zblízka", "Teoretický test", "Zápočet"]:
-                col1, col2 = st.columns([0.3, 0.3])
-                with col1:
-                    zim_stp_chk = st.checkbox(subj, value=current_student["subjects"]["zimni"]["Základy STP-1"].get(subj, {}).get("completed", False), key="1Mgr_STP1_" + subj)
-                with col2:
-                    zim_stp_teacher = st.text_input("Učitel, který zapsal", value=current_student["subjects"]["zimni"]["Základy STP-1"].get(subj, {}).get("teacher", ""), key="1Mgr_STP1_" + subj + "_teacher", max_chars=10)
-                current_student["subjects"]["zimni"]["Základy STP-1"][subj] = {"completed": zim_stp_chk, "teacher": zim_stp_teacher}
-            cond_stp1 = all(current_student["subjects"]["zimni"]["Základy STP-1"][s]["completed"] for s in ["Vojenské lezení", "Boj zblízka", "Teoretický test", "Zápočet"])
-            st.markdown("Splněno: **" + ("ANO" if cond_stp1 else "NE") + "**")
-    
     with col_right:
         st.subheader("Letní semestr")
         st.markdown("#### Teorie a didaktika AČR-2")
@@ -123,7 +107,6 @@ def run_student():
                 let_TACR2_teacher = st.text_input("Učitel, který zapsal", value=current_student["subjects"]["letni"]["Teorie a didaktika AČR-2"].get("teacher", ""), key="1Mgr_let_TACR2_Zápočet_teacher", max_chars=10)
             current_student["subjects"]["letni"]["Teorie a didaktika AČR-2"] = {"completed": let_TACR2_chk, "teacher": let_TACR2_teacher}
             st.markdown("Splněno: **" + ("ANO" if let_TACR2_chk else "NE") + "**")
-        
         st.markdown("#### Základy STP-2")
         with st.expander("Detail hodnocení", expanded=True):
             for subj in ["Vojenské lezení", "Boj zblízka", "Teoretický test", "Zápočet"]:
@@ -144,7 +127,6 @@ def run_student():
             cond_stp2 = all(current_student["subjects"]["letni"]["Základy STP-2"][s]["completed"] for s in ["Vojenské lezení", "Boj zblízka", "Teoretický test", "Zápočet"]) \
                        and let_stp2_zk_chk and let_stp2_zk_grade.strip() not in ["", "4"]
             st.markdown("Splněno: **" + ("ANO" if cond_stp2 else "NE") + "**")
-        
         st.markdown("#### Speciální TP-1")
         with st.expander("Detail hodnocení", expanded=True):
             for subj in ["STP-II", "VL-III", "VPL-II", "ZP-II", "Zápočet"]:
@@ -156,8 +138,7 @@ def run_student():
                 current_student["subjects"]["letni"]["Speciální TP-1"][subj] = {"completed": let_spt1_chk, "teacher": let_spt1_teacher}
             cond_spt1 = all(current_student["subjects"]["letni"]["Speciální TP-1"][s]["completed"] for s in ["STP-II", "VL-III", "VPL-II", "ZP-II", "Zápočet"])
             st.markdown("Splněno: **" + ("ANO" if cond_spt1 else "NE") + "**")
-    
-    if st.button("Uložit předmětová hodnocení", key="save_1Mgr_" + str(current_student.get("id_op", ""))):
+    if st.button("Uložit hodnocení", key="save_1Mgr_" + str(current_student.get("id_op", ""))):
         save_student_record(current_student)
         st.success("Předmětová hodnocení uložena!")
         try:
