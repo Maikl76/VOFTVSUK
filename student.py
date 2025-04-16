@@ -71,7 +71,11 @@ def run_add_student():
             }
             insert_student(new_student)
             st.success("Nový student přidán!")
-            st.experimental_rerun()
+            # Voláme rerun, pokud je experimental_rerun dostupné
+            try:
+                st.experimental_rerun()
+            except AttributeError:
+                pass
 
 def run_edit_student():
     st.header("Editace studenta")
@@ -138,7 +142,10 @@ def run_edit_student():
             })
             save_students(updated_student)
             st.success("Student upraven!")
-            st.experimental_rerun()
+            try:
+                st.experimental_rerun()
+            except AttributeError:
+                pass
 
 def run_graduates():
     st.header("Absolventi")
