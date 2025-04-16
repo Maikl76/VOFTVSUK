@@ -11,7 +11,6 @@ SUPABASE_URL = "https://bgtpylewilzcqfqaoixx.supabase.co"
 SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJndHB5bGV3aWx6Y3FmcWFvaXh4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQ1NzQxNTQsImV4cCI6MjA2MDE1MDE1NH0.6NutsH1g8k0ruhpylqltrWD53HQFy-ZQjcUN-SULktM"
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# Funkce pro načítání studentů z Supabase
 def load_students():
     response = supabase.table("students").select("*").execute()
     if response.error:
@@ -19,14 +18,12 @@ def load_students():
         return []
     return response.data
 
-# Funkce pro aktualizaci studenta (podle unikátní hodnoty id_op)
 def save_students(updated_student):
     response = supabase.table("students").update(updated_student).eq("id_op", updated_student["id_op"]).execute()
     if response.error:
         st.error("Chyba při aktualizaci studenta: " + response.error.message)
     return response.data
 
-# Funkce pro vložení nového studenta
 def insert_student(new_student):
     response = supabase.table("students").insert(new_student).execute()
     if response.error:
@@ -64,7 +61,7 @@ def run_add_student():
                 "note": note,
                 "study_type": study_type,
                 "cohort": cohort,
-                "subjects": {},  # nastavte prázdnou hodnotu nebo výchozí strukturu dle potřeby
+                "subjects": {},
                 "is_graduated": False
             }
             insert_student(new_student)
@@ -80,7 +77,6 @@ def run_edit_student():
         df = pd.DataFrame(columns=["hodnost", "first_name", "last_name", "date_of_birth",
                                    "address", "phone", "email", "id_op", "id_sp", "note",
                                    "study_type", "cohort", "subjects", "is_graduated"])
-    # Zobrazíme tabulku bez sloupce "subjects"
     df_display = df.drop(columns=["subjects"], errors="ignore")
     st.dataframe(df_display, use_container_width=True)
     
@@ -146,7 +142,8 @@ def run_graduates():
     st.dataframe(df, use_container_width=True)
 
 if __name__ == "__main__":
-    # Při testování odkomentujte jednu z funkcí:
+    # Pro testování odkomentujte jednu z funkcí:
     # run_add_student()
     # run_edit_student()
     # run_graduates()
+    pass
