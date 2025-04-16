@@ -73,7 +73,7 @@ with st.sidebar.expander("Nastavení položek vyhodnocení"):
     st.write("")
 
 # Autentizace
-PASSWORD = "1954"
+PASSWORD = st.secrets["app"]["login_password"]
 if "authenticated" not in st.session_state:
     st.session_state["authenticated"] = False
 
