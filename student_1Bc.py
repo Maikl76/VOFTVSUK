@@ -14,7 +14,7 @@ st.markdown("""
 
 # Inicializace Supabase klienta
 SUPABASE_URL = "https://bgtpylewilzcqfqaoixx.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJndHB5bGV3aWx6Y3FmcWFvaXh4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQ1NzQxNTQsImV4cCI6MjA2MDE1MDE1NH0.6NutsH1g8k0ruhpylqltrWD53HQFy-ZQjcUN-SULktM"
+SUPABASE_KEY = "YOUR_SUPABASE_KEY_HERE"
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 def load_students():
@@ -64,7 +64,6 @@ def run_student():
     if not cohort_students:
         st.info("Žádní studenti z tohoto ročníku nejsou zaregistrováni.")
         return
-
     df = pd.DataFrame(cohort_students)
     st.dataframe(df, use_container_width=True)
     
@@ -82,6 +81,7 @@ def run_student():
     st.markdown("## Předmětové hodnocení")
     col_left, col_right = st.columns(2)
     
+    # Zimní semestr
     with col_left:
         st.subheader("Zimní semestr")
         st.markdown("#### Teorie a didaktika AČR-I")
@@ -96,6 +96,7 @@ def run_student():
             current_student["subjects"]["zimni"]["Teorie a didaktika AČR-I"] = {"completed": zim_chk, "teacher": zim_teacher}
             st.markdown("Splněno: **" + ("ANO" if zim_chk else "NE") + "**")
     
+    # Letní semestr
     with col_right:
         st.subheader("Letní semestr")
         st.markdown("### Základy STP-I")
