@@ -24,7 +24,6 @@ def load_students():
 
 def save_students(updated_student):
     try:
-        # Aktualizace pomocí unikátního klíče id_op
         response = supabase.table("students").update(updated_student).eq("id_op", updated_student["id_op"]).execute()
         return response.data
     except Exception as e:
@@ -48,7 +47,15 @@ def delete_student(student_id):
         return None
 
 def run_add_student():
-    st.header("Přidat nového studenta")
+    # Nadpis a tlačítko Aktualizovat
+    cols = st.columns([8, 1])
+    cols[0].header("Přidat nového studenta")
+    if cols[1].button("Aktualizovat", key="update_add"):
+        try:
+            st.experimental_rerun()
+        except AttributeError:
+            pass
+
     with st.form(key="add_student_form", clear_on_submit=True):
         hodnost = st.selectbox("Hodnost", ["--", "svob.", "des.", "čet.", "rtn. Bc.", "rtm. Bc."], key="add_hodnost")
         first_name = st.text_input("Jméno", key="add_first_name")
@@ -89,7 +96,15 @@ def run_add_student():
                 pass
 
 def run_edit_student():
-    st.header("Editace studenta")
+    # Nadpis a tlačítko Aktualizovat
+    cols = st.columns([8, 1])
+    cols[0].header("Editace studenta")
+    if cols[1].button("Aktualizovat", key="update_edit"):
+        try:
+            st.experimental_rerun()
+        except AttributeError:
+            pass
+
     students = load_students()
     if not students:
         st.info("Žádní studenti nejsou k dispozici ke změně.")
@@ -170,7 +185,15 @@ def run_edit_student():
                 pass
 
 def run_graduates():
-    st.header("Absolventi")
+    # Nadpis a tlačítko Aktualizovat
+    cols = st.columns([8, 1])
+    cols[0].header("Absolventi")
+    if cols[1].button("Aktualizovat", key="update_grads"):
+        try:
+            st.experimental_rerun()
+        except AttributeError:
+            pass
+
     students = load_students()
     graduates = [s for s in students if s.get("is_graduated", False)]
     if not graduates:
@@ -180,8 +203,4 @@ def run_graduates():
     st.dataframe(df, use_container_width=True)
 
 if __name__ == "__main__":
-    # Pro testování odkomentujte jednu z funkcí:
-    # run_add_student()
-    # run_edit_student()
-    # run_graduates()
     pass
