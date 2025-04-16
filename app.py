@@ -18,7 +18,7 @@ SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJ
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 # =================================
 
-# Dummy moduly – pokud dpp, pri a zsc nejsou dostupné
+# Dummy moduly
 try:
     import dpp
 except ModuleNotFoundError:
@@ -43,7 +43,7 @@ except ModuleNotFoundError:
             st.info("Modul ZSC není k dispozici.")
     zsc = DummyZSC()
 
-# Sidebar – expander s nastavením položek vyhodnocení
+# Sidebar – expander s nastavením vyhodnocení
 with st.sidebar.expander("Nastavení položek vyhodnocení"):
     selected_items = {}
     items = [
@@ -71,7 +71,7 @@ with st.sidebar.expander("Nastavení položek vyhodnocení"):
     include_celkovy = st.checkbox("Zobrazit celkové vyhodnocení", key="include_celkovy")
     st.write("")
 
-# Nastavení hesla
+# Autentizace
 PASSWORD = "1954"
 if "authenticated" not in st.session_state:
     st.session_state["authenticated"] = False
@@ -90,11 +90,10 @@ if not st.session_state["authenticated"]:
 # Hlavička – logo a název
 col1, col2 = st.columns([1, 6])
 with col1:
-    st.image("Logo.png", width=50)  # Upravte podle potřeby
+    st.image("Logo.png", width=50)
 with col2:
     st.markdown("<h1 style='margin-bottom: 0;'>Vojenský obor FTVS UK</h1>", unsafe_allow_html=True)
 
-# Custom CSS
 st.markdown(
     """
     <style>
@@ -156,7 +155,7 @@ with tabs[0]:
     else:
         eval_items = [item for item in items if st.session_state.get(f"include_{item}", False)]
     if not eval_items:
-        st.info("Vyberte alespoň jednu položku v postranním panelu.")
+        st.info("Vyberte alespoň jednu položku v sidebaru.")
     else:
         st.markdown("### Vyplňte nebo upravte vyhodnocení")
         eval_data = {}
@@ -184,7 +183,7 @@ with tabs[1]:
             st.markdown(f"### {item}{finished_mark}")
             st.write(data.get("text", ""))
     else:
-        st.info("Pro zvolený rok a období nejsou uložena žádná vyhodnocení.")
+        st.info("Pro zvolený rok a období nejsou uložena vyhodnocení.")
 with tabs[2]:
     dpp.run_dpp()
 with tabs[3]:
