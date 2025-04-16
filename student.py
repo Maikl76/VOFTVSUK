@@ -12,23 +12,28 @@ SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJ
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 def load_students():
-    response = supabase.table("students").select("*").execute()
-    if response.error:
-        st.error("Chyba při načítání studentů: " + response.error.message)
+    try:
+        response = supabase.table("students").select("*").execute()
+        return response.data or []
+    except Exception as e:
+        st.error("Chyba při načítání studentů: " + str(e))
         return []
-    return response.data
 
 def save_students(updated_student):
-    response = supabase.table("students").update(updated_student).eq("id_op", updated_student["id_op"]).execute()
-    if response.error:
-        st.error("Chyba při aktualizaci studenta: " + response.error.message)
-    return response.data
+    try:
+        response = supabase.table("students").update(updated_student).eq("id_op", updated_student["id_op"]).execute()
+        return response.data
+    except Exception as e:
+        st.error("Chyba při aktualizaci studenta: " + str(e))
+        return None
 
 def insert_student(new_student):
-    response = supabase.table("students").insert(new_student).execute()
-    if response.error:
-        st.error("Chyba při vkládání nového studenta: " + response.error.message)
-    return response.data
+    try:
+        response = supabase.table("students").insert(new_student).execute()
+        return response.data
+    except Exception as e:
+        st.error("Chyba při vkládání nového studenta: " + str(e))
+        return None
 
 def run_add_student():
     st.header("Přidat nového studenta")
