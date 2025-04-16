@@ -30,7 +30,7 @@ def run_pri(selected_year):
     next_year = current_year + 1
 
     st.title("Evidence PR-I – Poukazy na rehabilitaci")
-    st.markdown(f"Evidence pro roky {current_year} a {next_year}.")
+    st.markdown(f"Evidence rehabilitačních poukazů pro roky {current_year} a {next_year}.")
 
     if "pri_data" not in st.session_state:
         st.session_state.pri_data = load_data(current_year, next_year)
@@ -71,17 +71,20 @@ def run_pri(selected_year):
             st.dataframe(df, use_container_width=True)
             row_to_delete = st.selectbox("Vyberte řádek k odstranění", options=df.index, key="pri_delete_" + rok,
                                          format_func=lambda idx: f"{df.loc[idx, 'Číslo poukazu']} - {df.loc[idx, 'Příjmení']}")
-            if st.button("❌ Smazat vybraný řádek", key="pri_delete_btn_" + rok):
+            if st.button("❌ Smazat řádek", key="pri_delete_btn_" + rok):
                 data[rok].pop(row_to_delete)
                 save_data(data)
-                st.success("Řádek smazán!")
+                st.success("Řádek byl smazán!")
                 st.experimental_rerun()
             if hasattr(st, "experimental_data_editor"):
                 edited_df = st.experimental_data_editor(df, num_rows="dynamic", key="pri_editor_" + rok, use_container_width=True)
                 if st.button("💾 Uložit změny", key="pri_save_" + rok):
                     data[rok] = edited_df.to_dict(orient="records")
                     save_data(data)
-                    st.success("Změny uloženy!")
+                    st.success("Změny byly uloženy!")
                     st.experimental_rerun()
             else:
-                st.info("Aktualizace přes inline editor není podporována ve vaší verzi Streamlit.")
+                st.info("Inline editor není podporován.")
+                
+if __name__ == "__main__":
+    run_pri(datetime.datetime.now().year)
