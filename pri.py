@@ -33,7 +33,7 @@ def run_pri(selected_year):
     current_year = int(selected_year)
     next_year = current_year + 1
 
-    st.title("Evidence PR-I – Poukazy na rehabilitaci")
+    st.title("Poukazy rehabiitace")
     st.markdown(f"Evidence rehabilitačních poukazů pro roky {current_year} a {next_year}.")
 
     if "pri_data" not in st.session_state:
