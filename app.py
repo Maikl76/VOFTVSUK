@@ -14,7 +14,7 @@ from streamlit_quill import st_quill  # WYSIWYG editor
 # ===== KONFIGURACE SUPABASE =====
 from supabase import create_client, Client
 SUPABASE_URL = "https://bgtpylewilzcqfqaoixx.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJndHB5bGV3aWx6Y3FmcWFvaXh4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQ1NzQxNTQsImV4cCI6MjA2MDE1MDE1NH0.6NutsH1g8k0ruhpylqltrWD53HQFy-ZQjcUN-SULktM"  # Nahraďte svým skutečným klíčem
+SUPABASE_KEY = "YOUR_SUPABASE_KEY"  # Nahraďte vaším skutečným klíčem
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 # =================================
 
@@ -42,6 +42,14 @@ except ModuleNotFoundError:
         def run_zsc(self):
             st.info("Modul ZSC není k dispozici.")
     zsc = DummyZSC()
+
+# Sidebar – přidáme základní obsah, aby byl sidebar zobrazen
+with st.sidebar:
+    st.header("Menu")
+    st.write("Zde můžete přidat další nastavení či navigaci.")
+    st.markdown("---")
+    # Můžete zde přidat další volby, např. filtrování nebo informace o aplikaci.
+    st.info("Příklad: Nastavení vyhodnocení, informace o projektu apod.")
 
 # Nastavení hesla
 PASSWORD = "1954"
@@ -171,7 +179,6 @@ def run_summary():
             df.to_excel(writer, index=False, sheet_name="Studenti")
         st.download_button(label="Stáhnout Excel soubor", data=buffer.getvalue(), file_name="Studenti_souhrn.xlsx", mime="application/vnd.ms-excel")
 
-# Definice záložek
 tabs = st.tabs(["Vyhodnocení VO FTVS UK", "Historie vyhodnocení", "DPP", "PR-I", "ZSC", "Student"])
 
 with tabs[0]:
