@@ -12,7 +12,6 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Inicializace Supabase klienta
 SUPABASE_URL = "https://bgtpylewilzcqfqaoixx.supabase.co"
 SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJndHB5bGV3aWx6Y3FmcWFvaXh4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQ1NzQxNTQsImV4cCI6MjA2MDE1MDE1NH0.6NutsH1g8k0ruhpylqltrWD53HQFy-ZQjcUN-SULktM"
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
@@ -75,42 +74,28 @@ def run_student():
             current_student["subjects"].setdefault(sem, {})
             for subj, details in default_structure_3Bc[sem].items():
                 current_student["subjects"][sem].setdefault(subj, deepcopy(details))
-    
     st.markdown("## Předmětové hodnocení")
     col_left, col_right = st.columns(2)
-    
     with col_left:
         st.subheader("Zimní semestr")
         st.markdown("#### Základy STP-III")
         with st.expander("Detail hodnocení", expanded=True):
             col1, col2 = st.columns([0.3, 0.3])
             with col1:
-                zim_zap_chk = st.checkbox("Zápočet", 
-                                          value=current_student["subjects"]["zimni"]["Základy STP-III"].get("Zápočet", {}).get("completed", False),
-                                          key="3Bc_STP3_Zápočet")
+                zim_zap_chk = st.checkbox("Zápočet", value=current_student["subjects"]["zimni"]["Základy STP-III"].get("Zápočet", {}).get("completed", False), key="3Bc_STP3_Zápočet")
             with col2:
-                zim_zap_teacher = st.text_input("Učitel, který zapsal", 
-                                                value=current_student["subjects"]["zimni"]["Základy STP-III"].get("Zápočet", {}).get("teacher", ""),
-                                                key="3Bc_STP3_Zápočet_teacher", max_chars=10)
+                zim_zap_teacher = st.text_input("Učitel, který zapsal", value=current_student["subjects"]["zimni"]["Základy STP-III"].get("Zápočet", {}).get("teacher", ""), key="3Bc_STP3_Zápočet_teacher", max_chars=10)
             current_student["subjects"]["zimni"]["Základy STP-III"]["Zápočet"] = {"completed": zim_zap_chk, "teacher": zim_zap_teacher}
-            
             col1, col2, col3 = st.columns([0.25, 0.1, 0.15])
             with col1:
-                zim_zk_chk = st.checkbox("Zkouška", 
-                                         value=current_student["subjects"]["zimni"]["Základy STP-III"].get("Zkouška", {}).get("completed", False),
-                                         key="3Bc_STP3_Zkouška")
+                zim_zk_chk = st.checkbox("Zkouška", value=current_student["subjects"]["zimni"]["Základy STP-III"].get("Zkouška", {}).get("completed", False), key="3Bc_STP3_Zkouška")
             with col2:
-                zim_zk_grade = st.text_input("Známka", 
-                                             value=current_student["subjects"]["zimni"]["Základy STP-III"].get("Zkouška", {}).get("grade", ""),
-                                             key="3Bc_STP3_Zkouška_grade", max_chars=3)
+                zim_zk_grade = st.text_input("Známka", value=current_student["subjects"]["zimni"]["Základy STP-III"].get("Zkouška", {}).get("grade", ""), key="3Bc_STP3_Zkouška_grade", max_chars=3)
             with col3:
-                zim_zk_teacher = st.text_input("Učitel, který zapsal", 
-                                               value=current_student["subjects"]["zimni"]["Základy STP-III"].get("Zkouška", {}).get("teacher", ""),
-                                               key="3Bc_STP3_Zkouška_teacher", max_chars=10)
+                zim_zk_teacher = st.text_input("Učitel, který zapsal", value=current_student["subjects"]["zimni"]["Základy STP-III"].get("Zkouška", {}).get("teacher", ""), key="3Bc_STP3_Zkouška_teacher", max_chars=10)
             current_student["subjects"]["zimni"]["Základy STP-III"]["Zkouška"] = {"completed": zim_zk_chk, "grade": zim_zk_grade, "teacher": zim_zk_teacher}
             cond_stp3 = all(current_student["subjects"]["zimni"]["Základy STP-III"][s]["completed"] for s in ["Zápočet", "Zkouška"])
             st.markdown("Splněno: **" + ("ANO" if cond_stp3 else "NE") + "**")
-        
         st.markdown("#### Speciální TP-III")
         with st.expander("Detail hodnocení", expanded=True):
             for subj in ["Kurz BZ-III", "Kurz PSL-I", "Zápočet"]:
@@ -122,7 +107,6 @@ def run_student():
                 current_student["subjects"]["zimni"]["Speciální TP-III"][subj] = {"completed": spec_chk, "teacher": spec_teacher}
             cond_spec = all(current_student["subjects"]["zimni"]["Speciální TP-III"][s]["completed"] for s in ["Kurz BZ-III", "Kurz PSL-I", "Zápočet"])
             st.markdown("Splněno: **" + ("ANO" if cond_spec else "NE") + "**")
-    
     with col_right:
         st.subheader("Letní semestr")
         st.markdown("#### Teorie a didaktika AČR-III")
@@ -133,7 +117,6 @@ def run_student():
             with col2:
                 let_tacr_zap_teacher = st.text_input("Učitel, který zapsal", value=current_student["subjects"]["letni"]["Teorie a didaktika AČR-III"].get("Zápočet", {}).get("teacher", ""), key="3Bc_let_TACR_Zápočet_teacher", max_chars=10)
             current_student["subjects"]["letni"]["Teorie a didaktika AČR-III"]["Zápočet"] = {"completed": let_tacr_zap_chk, "teacher": let_tacr_zap_teacher}
-            
             col3, col4, col5 = st.columns([0.25, 0.1, 0.15])
             with col3:
                 let_tacr_zk_chk = st.checkbox("Zkouška", value=current_student["subjects"]["letni"]["Teorie a didaktika AČR-III"].get("Zkouška", {}).get("completed", False), key="3Bc_let_TACR_Zk")
@@ -146,7 +129,6 @@ def run_student():
                          current_student["subjects"]["letni"]["Teorie a didaktika AČR-III"].get("Zkouška", {}).get("completed", False))
             st.markdown("Splněno: **" + ("ANO" if cond_tacr else "NE") + "**")
             current_student["subjects"]["letni"]["Teorie a didaktika AČR-III"]["Splněno"] = {"value": "ANO" if cond_tacr else "NE"}
-    
     if st.button("Uložit hodnocení", key="save_3Bc_" + str(current_student.get("id_op", ""))):
         save_student_record(current_student)
         st.success("Hodnocení uloženo!")
