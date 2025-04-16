@@ -131,7 +131,7 @@ def run_zsc():
     if st.button("💾 Uložit rozpočet", key="zsc_save_budget"):
         save_budget(total_budget)
         st.success("Rozpočet uložen!")
-    total_expenses = df["Celkem (Kč)"].sum() if not df.empty else 0.0
+    total_expenses = df["Celkem (Kč)"].sum() if not df.empty and "Celkem (Kč)" in df.columns else 0.0
     zbyva = total_budget - total_expenses
     col1, col2, col3 = st.columns(3)
     col1.metric("Celkový rozpočet", f"{total_budget:.2f} Kč")
