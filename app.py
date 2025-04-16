@@ -13,8 +13,9 @@ from streamlit_quill import st_quill  # WYSIWYG editor
 
 # ===== KONFIGURACE SUPABASE =====
 from supabase import create_client, Client
-SUPABASE_URL = "https://bgtpylewilzcqfqaoixx.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJndHB5bGV3aWx6Y3FmcWFvaXh4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQ1NzQxNTQsImV4cCI6MjA2MDE1MDE1NH0.6NutsH1g8k0ruhpylqltrWD53HQFy-ZQjcUN-SULktM"  # Nahraďte svým skutečným klíčem
+# Načtení hodnot ze st.secrets
+SUPABASE_URL = st.secrets["supabase"]["supabase_url"]
+SUPABASE_KEY = st.secrets["supabase"]["supabase_key"]
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 # =================================
 
@@ -43,7 +44,7 @@ except ModuleNotFoundError:
             st.info("Modul ZSC není k dispozici.")
     zsc = DummyZSC()
 
-# Sidebar s expanderem pro nastavení vyhodnocení
+# Sidebar – expander s nastavením položek vyhodnocení
 with st.sidebar.expander("Nastavení položek vyhodnocení"):
     selected_items = {}
     items = [
@@ -117,7 +118,7 @@ def format_table(doc_table, font_size=10):
                 for run in paragraph.runs:
                     run.font.size = Pt(font_size)
 
-# Funkce pro evaluace – funkce run_summary() je zde definována, aby byla dostupná
+# Funkce pro evaluace – definujeme run_summary() zde, aby byla dostupná i později
 def run_summary():
     st.header("Souhrn všech studentů")
     try:
@@ -148,7 +149,7 @@ def run_summary():
             df.to_excel(writer, index=False, sheet_name="Studenti")
         st.download_button(label="Stáhnout Excel soubor", data=buffer.getvalue(), file_name="Studenti_souhrn.xlsx", mime="application/vnd.ms-excel")
 
-# Načítání evaluací pomocí Supabase
+# Funkce pro evaluace pomocí Supabase
 def load_evaluations():
     response = supabase.table("evaluations").select("data").eq("id", 1).execute()
     if response.data and "data" in response.data[0]:
@@ -203,7 +204,8 @@ with tabs[0]:
             st.success("Vyhodnocení uloženo!")
 with tabs[1]:
     st.header("Historie vyhodnocení")
-    hist_year = st.number_input("Zvolte rok", min_value=2000, max_value=2100, value=datetime.datetime.now().year, step=1, key="hist_year")
+    hist_year = st.number_input("Zvolte rok", min_value=2000, max_value=2100, 
+                                 value=datetime.datetime.now().year, step=1, key="hist_year")
     hist_period = st.selectbox("Vyberte období", list(evaluation_periods.keys()), key="hist_period")
     key = f"{hist_year}_{hist_period}"
     if key in st.session_state.evaluations:
@@ -218,7 +220,8 @@ with tabs[1]:
 with tabs[2]:
     dpp.run_dpp()
 with tabs[3]:
-    selected_year = st.number_input("Zvolte rok pro evidenci PR-I", min_value=2000, max_value=2100, value=datetime.datetime.now().year, step=1)
+    selected_year = st.number_input("Zvolte rok pro evidenci PR-I", min_value=2000, max_value=2100, 
+                                    value=datetime.datetime.now().year, step=1)
     pri.run_pri(selected_year)
 with tabs[4]:
     zsc.run_zsc()
