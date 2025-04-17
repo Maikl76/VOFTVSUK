@@ -64,7 +64,7 @@ COHORT = "2. Mgr."
 DISPLAY_NAME = "Pátý ročník (2. Mgr.)"
 
 def run_student():
-    st.title("Systém studentů - " + DISPLAY_NAME)
+    st.title("Studenti - " + DISPLAY_NAME)
     students = load_students()
     cohort_students = [s for s in students if s.get("cohort") == COHORT]
     if not cohort_students:
