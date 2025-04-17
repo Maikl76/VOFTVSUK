@@ -28,15 +28,14 @@ def load_students():
 
 def save_student_record(student):
     try:
-        # Uložíme pouze sloupec 'subjects', bez debug výpisů
-        response = (
+        resp = (
             supabase
             .table("students")
             .update({"subjects": student["subjects"]})
             .eq("id_op", student["id_op"])
             .execute()
         )
-        return response.data
+        return resp.data
     except Exception as e:
         st.error("Chyba při ukládání: " + str(e))
         return None
@@ -66,24 +65,26 @@ COHORT = "2. Bc."
 DISPLAY_NAME = "Druhý ročník (2. Bc.)"
 
 def run_student():
-    st.title("Studenti - " + DISPLAY_NAME)
+    st.title("Systém studentů - " + DISPLAY_NAME)
     students = load_students()
     cohort_students = [s for s in students if s.get("cohort") == COHORT]
     if not cohort_students:
-        st.info("Žádní studenti z tohoto ročníku nejsou zaregistrováni.")
+        st.info("Žádní studenti nejsou zaregistrováni.")
         return
 
+    # schováme id, subjects a is_graduated
     df = pd.DataFrame(cohort_students)
+    df = df.drop(columns=["id", "subjects", "is_graduated"], errors="ignore")
     st.dataframe(df, use_container_width=True)
 
     idx = st.selectbox(
         "Vyberte studenta",
         options=df.index,
-        format_func=lambda i: f"{df.loc[i,'hodnost']} {df.loc[i,'first_name']} {df.loc[i,'last_name']}"
+        format_func=lambda i: f"{cohort_students[i]['hodnost']} {cohort_students[i]['first_name']} {cohort_students[i]['last_name']}"
     )
     current_student = deepcopy(cohort_students[idx])
 
-    # inicializace nebo doplnění subjects
+    # inicializace subjects
     if "subjects" not in current_student:
         current_student["subjects"] = deepcopy(default_structure_2Bc)
     else:
@@ -106,7 +107,7 @@ def run_student():
                     key=f"2Bc_zim_STP2_{subj}"
                 )
                 teacher = st.text_input(
-                    "Učitel, který zapsal",
+                    "Učitel",
                     value=current_student["subjects"]["zimni"]["Základy STP-II"][subj]["teacher"],
                     key=f"2Bc_zim_STP2_{subj}_teacher",
                     max_chars=10
@@ -126,12 +127,12 @@ def run_student():
         with st.expander("Detail hodnocení", expanded=True):
             chk = st.checkbox(
                 "Zápočet",
-                value=current_student["subjects"]["letni"].get("Teorie a didaktika AČR-II", {}).get("completed", False),
+                value=current_student["subjects"]["letni"]["Teorie a didaktika AČR-II"]["completed"],
                 key="2Bc_let_TACR2_Zapo"
             )
             teacher = st.text_input(
-                "Učitel, který zapsal",
-                value=current_student["subjects"]["letni"].get("Teorie a didaktika AČR-II", {}).get("teacher", ""),
+                "Učitel",
+                value=current_student["subjects"]["letni"]["Teorie a didaktika AČR-II"]["teacher"],
                 key="2Bc_let_TACR2_Zapo_teacher",
                 max_chars=10
             )
@@ -149,7 +150,7 @@ def run_student():
                     key=f"2Bc_let_SPT2_{subj}"
                 )
                 teacher = st.text_input(
-                    "Učitel, který zapsal",
+                    "Učitel",
                     value=current_student["subjects"]["letni"]["Speciální TP-II"][subj]["teacher"],
                     key=f"2Bc_let_SPT2_{subj}_teacher",
                     max_chars=10
