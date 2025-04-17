@@ -16,7 +16,7 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 # Pro ruční rerun
 from streamlit.runtime.scriptrunner import RerunException, RerunData
 
-# Dummy modules – pokud nejsou k dispozici
+# Dummy moduly – pokud nejsou k dispozici
 try:
     import dpp
 except ModuleNotFoundError:
@@ -115,15 +115,14 @@ def run_summary():
         "Instr. BZ","Instr. VL","Instr. PSL","Instr. ZP","Instr. VPL"
     ]
     mapping = {
-        "Teorie a didaktika AČR-I":"TaD-I","Teorie a didaktika AČR-II":"TaD-II",
-        "Teorie a didaktika AČR-III":"TaD-III","Teorie a didaktika AČR-1":"TaD-1",
-        "Teorie a didaktika AČR-2":"TaD-2","Teorie a didaktika AČR-3":"TaD-3",
+        "Teorie a didaktika AČR-I":"TaD-I","Teorie a didaktika AČR-II":"TaD-II","Teorie a didaktika AČR-III":"TaD-III",
+        "Teorie a didaktika AČR-1":"TaD-1","Teorie a didaktika AČR-2":"TaD-2","Teorie a didaktika AČR-3":"TaD-3",
         "Základy STP-I":"ZSTP-I","Základy STP-II":"ZSTP-II","Základy STP-III":"ZSTP-III",
         "Základy STP-1":"ZSTP-1","Základy STP-2":"ZSTP-2",
         "Speciální TP-I":"STP-I","Speciální TP-II":"STP-II","Speciální TP-III":"STP-III",
         "Speciální TP-1":"STP-1","Speciální TP-2":"STP-2",
-        **{f"Kurz BZ-{i}":f"Kurz BZ-{i}" for i in ["I","II","III","IV"]},
-        **{f"Kurz VL-{i}":f"Kurz VL-{i}" for i in ["I","II","III","IV"]},
+        "Kurz BZ-I":"Kurz BZ-I","Kurz BZ-II":"Kurz BZ-II","Kurz BZ-III":"Kurz BZ-III","Kurz BZ-IV":"Kurz BZ-IV",
+        "Kurz VL-I":"Kurz VL-I","Kurz VL-II":"Kurz VL-II","Kurz VL-III":"Kurz VL-III","Kurz VL-IV":"Kurz VL-IV",
         "Kurz PSL":"Kurz PSL","Kurz PSL-I":"Kurz PSL-I","Kurz PSL-II":"Kurz PSL-II",
         "Kurz ZP-I":"Kurz ZP-I","Kurz ZP-II":"Kurz ZP-II",
         "Kurz VPL-I":"Kurz VPL-I","Kurz VPL-II":"Kurz VPL-II",
@@ -139,7 +138,7 @@ def run_summary():
             return bool(detail.get("instruktor"))
         if "completed" in detail:
             return bool(detail.get("completed"))
-        if detail.get("grade", "").strip() != "":
+        if detail.get("grade","").strip() != "":
             return True
         for v in detail.values():
             if is_done(v):
@@ -168,8 +167,13 @@ def run_summary():
         records.append({**base, **extract(s)})
 
     df = pd.DataFrame(records, columns=base_cols + desired)
-    st.dataframe(df, use_container_width=True)
+    # Seřazení podle ročníků
+    order = {"1. Bc.":0, "2. Bc.":1, "3. Bc.":2, "1. Mgr.":3, "2. Mgr.":4}
+    df["__order"] = df["Ročník"].map(order).fillna(len(order))
+    df = df.sort_values(["__order", "Příjmení", "Jméno"])
+    df = df.drop(columns="__order")
 
+    st.dataframe(df, use_container_width=True)
     if st.button("Exportovat do Excelu"):
         buf = BytesIO()
         with pd.ExcelWriter(buf, engine="xlsxwriter") as writer:
@@ -258,17 +262,16 @@ with tabs[5]:
     cols = st.columns([8,1])
     cols[0].header("Student")
     if cols[1].button("Aktualizace"):
-        # ruční rerun
         raise RerunException(RerunData(st.query_params))
 
     student_tabs = st.tabs([
         "Vojenské předměty","Přidat studenta","Editace studenta","Souhrn"
     ])
+    import student_1Bc, student_2Bc, student_3Bc, student_1Mgr, student_2Mgr, student
     with student_tabs[0]:
         cohort_tabs = st.tabs([
             "První ročník","Druhý ročník","Třetí ročník","Čtvrtý ročník","Pátý ročník"
         ])
-        import student_1Bc, student_2Bc, student_3Bc, student_1Mgr, student_2Mgr
         with cohort_tabs[0]:
             student_1Bc.run_student()
         with cohort_tabs[1]:
@@ -280,8 +283,8 @@ with tabs[5]:
         with cohort_tabs[4]:
             student_2Mgr.run_student()
     with student_tabs[1]:
-        import student; student.run_add_student()
+        student.run_add_student()
     with student_tabs[2]:
-        import student; student.run_edit_student()
+        student.run_edit_student()
     with student_tabs[3]:
         run_summary()
