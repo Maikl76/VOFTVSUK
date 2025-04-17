@@ -28,15 +28,15 @@ def load_students():
 
 def save_student_record(student):
     try:
-        # Uložíme pouze sloupec subjects
-        resp = (
+        # Uložíme pouze sloupec 'subjects', bez debug výpisů
+        response = (
             supabase
             .table("students")
             .update({"subjects": student["subjects"]})
             .eq("id_op", student["id_op"])
             .execute()
         )
-        return resp.data
+        return response.data
     except Exception as e:
         st.error("Chyba při ukládání: " + str(e))
         return None
