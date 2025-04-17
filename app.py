@@ -8,29 +8,43 @@ from io import BytesIO
 from docx.shared import Pt
 from streamlit_quill import st_quill
 
-# ===== KONFIGURACE SUPABASE =====
 from supabase import create_client, Client
 SUPABASE_URL = st.secrets["supabase"]["supabase_url"]
 SUPABASE_KEY = st.secrets["supabase"]["supabase_key"]
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-# =================================
 
-# Dummy modules for DPP, PRI, ZSC
-for mod in ["dpp", "pri", "zsc"]:
-    try:
-        __import__(mod)
-    except ModuleNotFoundError:
-        exec(f"class Dummy{mod.upper()}:\\n"
-             f"    def run_{mod}(self, *args, **kwargs): st.info('Modul {mod.upper()} není k dispozici.')")
-        globals()[mod] = eval(f"Dummy{mod.upper()}()")
+# Dummy modules – pokud dpp, pri a zsc nejsou dostupné
+try:
+    import dpp
+except ModuleNotFoundError:
+    class dpp:
+        @staticmethod
+        def run_dpp():
+            st.info("Modul DPP není k dispozici.")
+try:
+    import pri
+except ModuleNotFoundError:
+    class pri:
+        @staticmethod
+        def run_pri(year):
+            st.info("Modul PRI není k dispozici.")
+try:
+    import zsc
+except ModuleNotFoundError:
+    class zsc:
+        @staticmethod
+        def run_zsc():
+            st.info("Modul ZSC není k dispozici.")
+
+# Seznam položek pro evaluaci
+items = [
+    "Souhrnný přehled APVVP", "VŠ vzdělávání", "Přijímačky", "Akreditace",
+    "Vědecká činnost", "Zahraniční spolupráce", "Personální oblast",
+    "Logistika", "Ekonomika", "Odborné kurzy", "Vojenská příprava", "Jazykové vzdělávání"
+]
 
 # Sidebar – nastavení položek vyhodnocení
 with st.sidebar.expander("Nastavení položek vyhodnocení"):
-    items = [
-        "Souhrnný přehled APVVP","VŠ vzdělávání","Přijímačky","Akreditace",
-        "Vědecká činnost","Zahraniční spolupráce","Personální oblast",
-        "Logistika","Ekonomika","Odborné kurzy","Vojenská příprava","Jazykové vzdělávání"
-    ]
     for itm in items:
         st.markdown(f"#### {itm}")
         st.checkbox("Zobrazit", key=f"include_{itm}")
@@ -52,7 +66,7 @@ if not st.session_state.get("authenticated", False):
     st.stop()
 
 # Hlavička
-col1, col2 = st.columns([1,6])
+col1, col2 = st.columns([1, 6])
 with col1:
     st.image("Logo.png", width=50)
 with col2:
@@ -74,7 +88,7 @@ def format_table(doc_table, font_size=10):
                 for r in p.runs:
                     r.font.size = Pt(font_size)
 
-# Funkce pro souhrn studentů
+# Souhrn všech studentů
 def run_summary():
     st.header("Souhrn všech studentů")
     try:
@@ -87,8 +101,7 @@ def run_summary():
         st.info("Žádní studenti nejsou zaregistrováni.")
         return
 
-    # Základní a požadované sloupce
-    base_cols = ["Hodnost","Jméno","Příjmení","Ročník","Kohorta"]
+    base_cols = ["Hodnost", "Jméno", "Příjmení", "Ročník", "Kohorta"]
     desired = [
         "TaD-I","TaD-II","TaD-III","TaD-1","TaD-2","TaD-3",
         "ZSTP-I","ZSTP-II","ZSTP-III","ZSTP-1","ZSTP-2",
@@ -121,34 +134,31 @@ def run_summary():
     def extract_one_level(s):
         row = {col: "NE" for col in desired}
         subj = s.get("subjects", {})
-        for sem in ["zimni","letni"]:
+        for sem in ["zimni", "letni"]:
             grp = subj.get(sem, {})
-            for full_name, details in grp.items():
-                ab = mapping.get(full_name)
-                if not ab: continue
-                # details is dict of sub-items
-                if isinstance(details, dict):
-                    done = False
-                    for v in details.values():
-                        if isinstance(v, dict):
-                            if v.get("completed") or (v.get("grade","").strip() != ""):
-                                done = True
-                                break
-                    row[ab] = "ANO" if done else "NE"
+            for full, details in grp.items():
+                ab = mapping.get(full)
+                if not ab or not isinstance(details, dict):
+                    continue
+                done = any(
+                    (isinstance(v, dict) and (v.get("completed") or v.get("grade", "").strip() != ""))
+                    for v in details.values()
+                )
+                row[ab] = "ANO" if done else "NE"
         return row
 
-    records = []
+    recs = []
     for s in students:
         base = {
-            "Hodnost": s.get("hodnost",""),
-            "Jméno":   s.get("first_name",""),
-            "Příjmení":s.get("last_name",""),
-            "Ročník":  s.get("cohort",""),
-            "Kohorta": s.get("study_type","")
+            "Hodnost":  s.get("hodnost", ""),
+            "Jméno":    s.get("first_name", ""),
+            "Příjmení": s.get("last_name", ""),
+            "Ročník":   s.get("cohort", ""),
+            "Kohorta":  s.get("study_type", "")
         }
-        records.append({**base, **extract_one_level(s)})
+        recs.append({**base, **extract_one_level(s)})
 
-    df = pd.DataFrame(records, columns=base_cols + desired)
+    df = pd.DataFrame(recs, columns=base_cols + desired)
     st.dataframe(df, use_container_width=True)
 
     if st.button("Exportovat do Excelu"):
@@ -162,45 +172,45 @@ def run_summary():
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
 
-# Evaluace – Supabase table "evaluations"
+# Evaluace
 def load_evaluations():
-    r = supabase.table("evaluations").select("data").eq("id",1).execute()
+    r = supabase.table("evaluations").select("data").eq("id", 1).execute()
     return r.data[0]["data"] if r.data and r.data[0].get("data") else {}
 
 def save_evaluations(data):
-    return supabase.table("evaluations").update({"data": data}).eq("id",1).execute()
+    return supabase.table("evaluations").update({"data": data}).eq("id", 1).execute()
 
 if "evaluations" not in st.session_state:
     st.session_state.evaluations = load_evaluations()
 
 evaluation_periods = {
-    "1. čtvrtletí":("1. leden","31. březen"),
-    "1. pololetí": ("1. leden","30. červen"),
-    "3. čtvrtletí":("1. červenec","31. září"),
-    "Celý rok":     ("1. leden","31. prosinec")
+    "1. čtvrtletí": ("1. leden",  "31. březen"),
+    "1. pololetí":  ("1. leden",  "30. červen"),
+    "3. čtvrtletí": ("1. červenec","31. září"),
+    "Celý rok":      ("1. leden",  "31. prosinec")
 }
 
 # Hlavní záložky
-tabs = st.tabs(["Vyhodnocení VO FTVS UK","Historie vyhodnocení","DPP","PR-I","ZSC","Student"])
+tabs = st.tabs(["Vyhodnocení VO FTVS UK", "Historie vyhodnocení", "DPP", "PR-I", "ZSC", "Student"])
 
 with tabs[0]:
     st.header("Vyhodnocení VO FTVS UK")
-    year = st.number_input("Rok",2000,2100,datetime.datetime.now().year)
+    year = st.number_input("Rok", 2000, 2100, datetime.datetime.now().year)
     period = st.selectbox("Vyberte období", list(evaluation_periods.keys()))
     prange = evaluation_periods[period]
-    st.write(f"{period}: {prange[0]} – {prange[1]}")
+    st.write(f"{period} ({prange[0]} až {prange[1]})")
     key = f"{year}_{period}"
-    saved = st.session_state.evaluations.get(key,{})
+    saved = st.session_state.evaluations.get(key, {})
     to_eval = items if st.session_state.include_celkovy else [i for i in items if st.session_state.get(f"include_{i}")]
     if not to_eval:
         st.info("Vyberte položky k vyhodnocení.")
     else:
-        st.markdown("### Vyplnění vyhodnocení")
+        st.markdown("### Vyhodnocení")
         new = {}
         for it in to_eval:
-            txt = st_quill(key=f"eval_{year}_{period}_{it}", value=saved.get(it,{}).get("text",""))
-            fin = st.checkbox("Hotovo", key=f"fin_{year}_{period}_{it}", value=saved.get(it,{}).get("finished",False))
-            new[it] = {"text":txt,"finished":fin}
+            txt = st_quill(key=f"eval_{year}_{period}_{it}", value=saved.get(it, {}).get("text", ""))
+            fin = st.checkbox("Hotovo", key=f"fin_{year}_{period}_{it}", value=saved.get(it, {}).get("finished", False))
+            new[it] = {"text": txt, "finished": fin}
         if st.button("Uložit vyhodnocení"):
             st.session_state.evaluations[key] = new
             save_evaluations(st.session_state.evaluations)
@@ -208,35 +218,35 @@ with tabs[0]:
 
 with tabs[1]:
     st.header("Historie vyhodnocení")
-    hy = st.number_input("Rok",2000,2100,datetime.datetime.now().year,key="hist_year")
-    hp = st.selectbox("Období", list(evaluation_periods.keys()),key="hist_period")
+    hy = st.number_input("Rok historie", 2000, 2100, datetime.datetime.now().year, key="hist_year")
+    hp = st.selectbox("Období historie", list(evaluation_periods.keys()), key="hist_period")
     hk = f"{hy}_{hp}"
     if hk in st.session_state.evaluations:
-        st.subheader(f"Vyhodnocení za {hk}")
-        for it,d in st.session_state.evaluations[hk].items():
+        st.subheader(f"Za {hk}")
+        for it, d in st.session_state.evaluations[hk].items():
             mark = " (hotovo)" if d.get("finished") else ""
             st.markdown(f"### {it}{mark}")
-            st.write(d.get("text",""))
+            st.write(d.get("text", ""))
     else:
         st.info("Žádná data.")
 
 with tabs[2]:
     dpp.run_dpp()
 with tabs[3]:
-    pri.run_pri(st.number_input("Rok PR-I",2000,2100,datetime.datetime.now().year))
+    pri.run_pri(st.number_input("Rok PR‑I", 2000, 2100, datetime.datetime.now().year))
 with tabs[4]:
     zsc.run_zsc()
 with tabs[5]:
     st.header("Student")
-    sub = st.tabs(["Vojenské předměty","Přidat studenta","Editace studenta","Souhrn"])
+    sub = st.tabs(["Vojenské předměty", "Přidat studenta", "Editace studenta", "Souhrn"])
     with sub[0]:
-        cr = st.tabs(["1. Bc.","2. Bc.","3. Bc.","1. Mgr.","2. Mgr."])
+        ct = st.tabs(["1. Bc.", "2. Bc.", "3. Bc.", "1. Mgr.", "2. Mgr."])
         import student_1Bc, student_2Bc, student_3Bc, student_1Mgr, student_2Mgr
-        with cr[0]: student_1Bc.run_student()
-        with cr[1]: student_2Bc.run_student()
-        with cr[2]: student_3Bc.run_student()
-        with cr[3]: student_1Mgr.run_student()
-        with cr[4]: student_2Mgr.run_student()
+        with ct[0]: student_1Bc.run_student()
+        with ct[1]: student_2Bc.run_student()
+        with ct[2]: student_3Bc.run_student()
+        with ct[3]: student_1Mgr.run_student()
+        with ct[4]: student_2Mgr.run_student()
     with sub[1]:
         import student; student.run_add_student()
     with sub[2]:
