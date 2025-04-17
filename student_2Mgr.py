@@ -28,8 +28,6 @@ def load_students():
 
 def save_student_record(student):
     try:
-        st.subheader("📋 Debug před uložení JSON:")
-        st.json(student["subjects"])
         resp = (
             supabase
             .table("students")
@@ -69,8 +67,9 @@ def run_student():
     students = load_students()
     cohort_students = [s for s in students if s.get("cohort") == COHORT]
     if not cohort_students:
-        st.info("Žádní studenti z tohoto ročníku nejsou zaregistrováni.")
+        st.info("Žádní studenti nejsou zaregistrováni.")
         return
+
     df = pd.DataFrame(cohort_students)
     st.dataframe(df, use_container_width=True)
 
@@ -81,6 +80,7 @@ def run_student():
     )
     current_student = deepcopy(cohort_students[idx])
 
+    # inicializace subjects
     if "subjects" not in current_student:
         current_student["subjects"] = deepcopy(default_structure_2Mgr)
     else:
@@ -95,17 +95,30 @@ def run_student():
     with left:
         st.subheader("Zimní semestr")
         st.markdown("#### Speciální TP-2")
-        with st.expander("Detail hodnocení", expanded=True):
-            # ... stejný vzor debug+uložení jako výše ...
-            pass
+        with st.expander("Detail", expanded=True):
+            # Kurz BZ-IV
+            bziv_chk = st.checkbox(
+                "Kurz BZ-IV",
+                value=current_student["subjects"]["zimni"]["Speciální TP-2"]["Kurz BZ-IV"]["completed"],
+                key="2Mgr_SPT2_BZIV"
+            )
+            bziv_instr = st.checkbox(
+                "Instruktor",
+                value=current_student["subjects"]["zimni"]["Speciální TP-2"]["Kurz BZ-IV"].get("instruktor", False),
+                key="2Mgr_SPT2_BZIV_instr"
+            )
+            bziv_teacher = st.text_input(
+                "Učitel",
+                value=current_student["subjects"]["zimni"]["Speciální TP-2"]["Kurz BZ-IV"]["teacher"],
+                key="2Mgr_SPT2_BZIV_teacher", max_chars=10
+            )
+            current_student["subjects"]["zimni"]["Speciální TP-2"]["Kurz BZ-IV"] = {
+                "completed": bziv_chk, "instruktor": bziv_instr, "teacher": bziv_teacher
+            }
 
-    with right:
-        st.subheader("Letní semestr")
-        st.markdown("#### Teorie a didaktika AČR-3")
-        with st.expander("Detail hodnocení", expanded=True):
-            # ... stejný vzor debug+uložení jako výše ...
-            pass
+            # ostatní položky obdobně...
+            # (zachovejte původní logiku pro Kurz VL-IV, PSL-II, Klasifikovaný zápočet)
 
-    if st.button("Uložit hodnocení", key="save_2Mgr_" + str(current_student.get("id_op", ""))):
+    if st.button("Uložit hodnocení", key="save_2Mgr_" + str(current_student["id_op"])):
         save_student_record(current_student)
         st.success("Hodnocení uloženo!")
