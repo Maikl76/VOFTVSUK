@@ -13,7 +13,7 @@ SUPABASE_URL = st.secrets["supabase"]["supabase_url"]
 SUPABASE_KEY = st.secrets["supabase"]["supabase_key"]
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# Dummy moduly – pokud nejsou k dispozici
+# Dummy modules – pokud nejsou k dispozici
 try:
     import dpp
 except ModuleNotFoundError:
@@ -36,14 +36,12 @@ except ModuleNotFoundError:
         def run_zsc():
             st.info("Modul ZSC není k dispozici.")
 
-# Položky pro vyhodnocení
+# Sidebar – nastavení položek vyhodnocení
 items = [
-    "Souhrnný přehled APVVP", "VŠ vzdělávání", "Přijímačky", "Akreditace",
-    "Vědecká činnost", "Zahraniční spolupráce", "Personální oblast",
-    "Logistika", "Ekonomika", "Odborné kurzy", "Vojenská příprava", "Jazykové vzdělávání"
+    "Souhrnný přehled APVVP","VŠ vzdělávání","Přijímačky","Akreditace",
+    "Vědecká činnost","Zahraniční spolupráce","Personální oblast",
+    "Logistika","Ekonomika","Odborné kurzy","Vojenská příprava","Jazykové vzdělávání"
 ]
-
-# Sidebar – nastavení
 with st.sidebar.expander("Nastavení položek vyhodnocení"):
     for itm in items:
         st.markdown(f"#### {itm}")
@@ -72,7 +70,7 @@ with col1:
 with col2:
     st.markdown("<h1 style='margin-bottom:0;'>Vojenský obor FTVS UK</h1>", unsafe_allow_html=True)
 
-# Vlastní CSS
+# Custom CSS
 st.markdown("""
 <style>
 .ql-editor { font-family:'Times New Roman', serif; font-size:14px; }
@@ -88,21 +86,20 @@ def format_table(doc_table, font_size=10):
                 for r in p.runs:
                     r.font.size = Pt(font_size)
 
-# Souhrnná tabulka studentů
+# Funkce pro souhrn studentů
 def run_summary():
     st.header("Souhrn všech studentů")
     try:
         resp = supabase.table("students").select("*").execute()
         students = resp.data or []
     except Exception as e:
-        st.error("Chyba při načítání studentů: " + str(e))
+        st.error(f"Chyba při načítání studentů: {e}")
         return
     if not students:
         st.info("Žádní studenti nejsou zaregistrováni.")
         return
 
-    # Definice sloupců a mapování názvů
-    base_cols = ["Hodnost", "Jméno", "Příjmení", "Ročník", "Kohorta"]
+    base_cols = ["Hodnost","Jméno","Příjmení","Ročník","Kohorta"]
     desired = [
         "TaD-I","TaD-II","TaD-III","TaD-1","TaD-2","TaD-3",
         "ZSTP-I","ZSTP-II","ZSTP-III","ZSTP-1","ZSTP-2",
@@ -132,45 +129,38 @@ def run_summary():
         "PSL-II Instruktor":"Instr. PSL","ZP-II Instruktor":"Instr. ZP","VPL-II Instruktor":"Instr. VPL"
     }
 
-    # Rozhodnutí, zda je daný detail "splněn"
     def is_done(detail):
         if not isinstance(detail, dict):
             return False
-        # atomický zápis
-        if any(k in detail for k in ("completed","grade","instruktor")):
-            if detail.get("instruktor") is not None:
-                return bool(detail.get("instruktor"))
-            if detail.get("completed") is not None:
-                return bool(detail.get("completed"))
-            if detail.get("grade") and str(detail["grade"]).strip() != "":
-                return True
-            return False
-        # jinak projdeme vnořené položky
+        if "instruktor" in detail:
+            return bool(detail.get("instruktor"))
+        if "completed" in detail:
+            return bool(detail.get("completed"))
+        if detail.get("grade", "").strip() != "":
+            return True
         for v in detail.values():
             if is_done(v):
                 return True
         return False
 
-    # Extrakce ANO/NE pro každou skupinu předmětů
     def extract(s):
-        row = {col:"NE" for col in desired}
-        subj = s.get("subjects",{})
-        for sem in ("zimni","letni"):
-            for full, det in subj.get(sem,{}).items():
-                abbr = mapping.get(full)
-                if abbr:
-                    row[abbr] = "ANO" if is_done(det) else "NE"
+        row = {col: "NE" for col in desired}
+        subj = s.get("subjects", {})
+        for sem in ("zimni", "letni"):
+            for full, det in subj.get(sem, {}).items():
+                ab = mapping.get(full)
+                if ab:
+                    row[ab] = "ANO" if is_done(det) else "NE"
         return row
 
-    # Sestavení DataFrame
     records = []
     for s in students:
         base = {
-            "Hodnost":  s.get("hodnost",""),
-            "Jméno":    s.get("first_name",""),
-            "Příjmení": s.get("last_name",""),
-            "Ročník":   s.get("cohort",""),
-            "Kohorta":  s.get("study_type","")
+            "Hodnost":  s.get("hodnost", ""),
+            "Jméno":    s.get("first_name", ""),
+            "Příjmení": s.get("last_name", ""),
+            "Ročník":   s.get("cohort", ""),
+            "Kohorta":  s.get("study_type", "")
         }
         records.append({**base, **extract(s)})
 
@@ -188,20 +178,20 @@ def run_summary():
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
 
-# Evaluace – tabulka "evaluations"
+# Evaluace
 def load_evaluations():
-    r = supabase.table("evaluations").select("data").eq("id",1).execute()
+    r = supabase.table("evaluations").select("data").eq("id", 1).execute()
     return r.data[0]["data"] if r.data and r.data[0].get("data") else {}
 
 def save_evaluations(data):
-    return supabase.table("evaluations").update({"data":data}).eq("id",1).execute()
+    return supabase.table("evaluations").update({"data": data}).eq("id", 1).execute()
 
 if "evaluations" not in st.session_state:
     st.session_state.evaluations = load_evaluations()
 
 evaluation_periods = {
-    "1. čtvrtletí":("1. leden","31. březen"),
-    "1. pololetí": ("1. leden","30. červen"),
+    "1. čtvrtletí": ("1. leden","31. březen"),
+    "1. pololetí":  ("1. leden","30. červen"),
     "3. čtvrtletí":("1. červenec","31. září"),
     "Celý rok":     ("1. leden","31. prosinec")
 }
@@ -220,22 +210,22 @@ with tabs[0]:
     st.header("Vyhodnocení VO FTVS UK")
     year = st.number_input("Rok",2000,2100,datetime.datetime.now().year)
     period = st.selectbox("Vyberte období", list(evaluation_periods.keys()))
-    prange = evaluation_periods[period]
-    st.write(f"{period} ({prange[0]} až {prange[1]})")
+    pr = evaluation_periods[period]
+    st.write(f"{period} ({pr[0]} až {pr[1]})")
     key = f"{year}_{period}"
-    saved = st.session_state.evaluations.get(key,{})
+    saved = st.session_state.evaluations.get(key, {})
     to_eval = items if st.session_state.include_celkovy else [
         i for i in items if st.session_state.get(f"include_{i}")
     ]
     if not to_eval:
         st.info("Vyberte položky k vyhodnocení.")
     else:
-        st.markdown("### Vyplňte nebo upravte vyhodnocení")
+        st.markdown("### Vyplňte vyhodnocení")
         new = {}
         for it in to_eval:
             txt = st_quill(key=f"eval_{year}_{period}_{it}", value=saved.get(it,{}).get("text",""))
             fin = st.checkbox("Hotovo", key=f"fin_{year}_{period}_{it}", value=saved.get(it,{}).get("finished",False))
-            new[it] = {"text":txt,"finished":fin}
+            new[it] = {"text": txt, "finished": fin}
         if st.button("Uložit vyhodnocení"):
             st.session_state.evaluations[key] = new
             save_evaluations(st.session_state.evaluations)
@@ -262,20 +252,17 @@ with tabs[3]:
 with tabs[4]:
     zsc.run_zsc()
 with tabs[5]:
-    st.header("Student")
+    cols = st.columns([8,1])
+    cols[0].header("Student")
+    if cols[1].button("Aktualizace"):
+        st.experimental_rerun()
+
     student_tabs = st.tabs([
-        "Vojenské předměty",
-        "Přidat studenta",
-        "Editace studenta",
-        "Souhrn"
+        "Vojenské předměty","Přidat studenta","Editace studenta","Souhrn"
     ])
     with student_tabs[0]:
         cohort_tabs = st.tabs([
-            "První ročník",
-            "Druhý ročník",
-            "Třetí ročník",
-            "Čtvrtý ročník",
-            "Pátý ročník"
+            "První ročník","Druhý ročník","Třetí ročník","Čtvrtý ročník","Pátý ročník"
         ])
         import student_1Bc, student_2Bc, student_3Bc, student_1Mgr, student_2Mgr
         with cohort_tabs[0]:
