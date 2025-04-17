@@ -13,6 +13,9 @@ SUPABASE_URL = st.secrets["supabase"]["supabase_url"]
 SUPABASE_KEY = st.secrets["supabase"]["supabase_key"]
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
+# Pro ruční rerun
+from streamlit.runtime.scriptrunner import RerunException, RerunData
+
 # Dummy modules – pokud nejsou k dispozici
 try:
     import dpp
@@ -255,7 +258,8 @@ with tabs[5]:
     cols = st.columns([8,1])
     cols[0].header("Student")
     if cols[1].button("Aktualizace"):
-        st.experimental_rerun()
+        # ruční rerun
+        raise RerunException(RerunData(st.query_params))
 
     student_tabs = st.tabs([
         "Vojenské předměty","Přidat studenta","Editace studenta","Souhrn"
