@@ -13,7 +13,6 @@ from streamlit_quill import st_quill  # WYSIWYG editor
 
 # ===== KONFIGURACE SUPABASE =====
 from supabase import create_client, Client
-# Načtení hodnot ze st.secrets
 SUPABASE_URL = st.secrets["supabase"]["supabase_url"]
 SUPABASE_KEY = st.secrets["supabase"]["supabase_key"]
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
@@ -46,7 +45,6 @@ except ModuleNotFoundError:
 
 # Sidebar – expander s nastavením položek vyhodnocení
 with st.sidebar.expander("Nastavení položek vyhodnocení"):
-    selected_items = {}
     items = [
         "Souhrnný přehled APVVP",
         "VŠ vzdělávání",
@@ -61,6 +59,7 @@ with st.sidebar.expander("Nastavení položek vyhodnocení"):
         "Vojenská příprava",
         "Jazykové vzdělávání"
     ]
+    selected_items = {}
     for item in items:
         st.markdown(f"#### {item}")
         include = st.checkbox("Zobrazit", key=f"include_{item}")
@@ -70,7 +69,6 @@ with st.sidebar.expander("Nastavení položek vyhodnocení"):
         selected_items[item] = include
     st.markdown("---")
     include_celkovy = st.checkbox("Zobrazit celkové vyhodnocení", key="include_celkovy")
-    st.write("")
 
 # Autentizace
 PASSWORD = st.secrets["app"]["login_password"]
@@ -95,168 +93,118 @@ with col1:
 with col2:
     st.markdown("<h1 style='margin-bottom: 0;'>Vojenský obor FTVS UK</h1>", unsafe_allow_html=True)
 
-st.markdown(
-    """
+# Custom CSS
+st.markdown("""
     <style>
-    .ql-editor {
-        font-family: "Times New Roman", serif;
-        font-size: 14px;
-    }
-    .stTextInput>div>div>input {
-        max-width: 100px;
-    }
+    .ql-editor { font-family: "Times New Roman", serif; font-size:14px; }
+    .stTextInput>div>div>input { max-width:100px; }
     </style>
-    """,
-    unsafe_allow_html=True,
-)
+""", unsafe_allow_html=True)
 
 def format_table(doc_table, font_size=10):
     doc_table.style = "Table Grid"
     for row in doc_table.rows:
         for cell in row.cells:
-            for paragraph in cell.paragraphs:
-                for run in paragraph.runs:
-                    run.font.size = Pt(font_size)
+            for p in cell.paragraphs:
+                for r in p.runs:
+                    r.font.size = Pt(font_size)
 
-# Funkce pro evaluace – definujeme run_summary() zde, aby byla dostupná i později
+# Funkce pro souhrn studentů
 def run_summary():
     st.header("Souhrn všech studentů")
-    # načtení studentů
     try:
-        response = supabase.table("students").select("*").execute()
-        students = response.data or []
+        resp = supabase.table("students").select("*").execute()
+        students = resp.data or []
     except Exception as e:
-        st.error("Chyba při načítání studentů: " + str(e))
+        st.error(f"Chyba při načítání studentů: {e}")
         return
     if not students:
         st.info("Žádní studenti nejsou zaregistrováni.")
         return
 
-    # definice předmětů a zkratek
+    # Definice sloupců a mapování
     desired_columns = [
-        "TaD-I", "TaD-II", "TaD-III",
-        "TaD-1", "TaD-2", "TaD-3",
-        "ZSTP-I", "ZSTP-II", "ZSTP-III",
-        "ZSTP-1", "ZSTP-2",
-        "STP-I", "STP-II", "STP-III",
-        "STP-1", "STP-2",
-        "Kurz BZ-I", "Kurz BZ-II", "Kurz BZ-III", "Kurz BZ-IV",
-        "Kurz VL-I", "Kurz VL-II", "Kurz VL-III", "Kurz VL-IV",
-        "Kurz PSL", "Kurz PSL-I", "Kurz PSL-II",
-        "Kurz ZP-I", "Kurz ZP-II",
-        "Kurz VPL-I", "Kurz VPL-II",
-        "Kurz STP-I", "Kurz STP-II",
-        "Instr. BZ", "Instr. VL", "Instr. PSL", "Instr. ZP", "Instr. VPL"
+        "TaD-I","TaD-II","TaD-III","TaD-1","TaD-2","TaD-3",
+        "ZSTP-I","ZSTP-II","ZSTP-III","ZSTP-1","ZSTP-2",
+        "STP-I","STP-II","STP-III","STP-1","STP-2",
+        "Kurz BZ-I","Kurz BZ-II","Kurz BZ-III","Kurz BZ-IV",
+        "Kurz VL-I","Kurz VL-II","Kurz VL-III","Kurz VL-IV",
+        "Kurz PSL","Kurz PSL-I","Kurz PSL-II",
+        "Kurz ZP-I","Kurz ZP-II","Kurz VPL-I","Kurz VPL-II",
+        "Kurz STP-I","Kurz STP-II",
+        "Instr. BZ","Instr. VL","Instr. PSL","Instr. ZP","Instr. VPL"
     ]
-    subject_mapping = {
-        "Teorie a didaktika AČR-I": "TaD-I",
-        "Teorie a didaktika AČR-II": "TaD-II",
-        "Teorie a didaktika AČR-III": "TaD-III",
-        "Teorie a didaktika AČR-1": "TaD-1",
-        "Teorie a didaktika AČR-2": "TaD-2",
-        "Teorie a didaktika AČR-3": "TaD-3",
-        "Základy STP-I": "ZSTP-I",
-        "Základy STP-II": "ZSTP-II",
-        "Základy STP-III": "ZSTP-III",
-        "Základy STP-1": "ZSTP-1",
-        "Základy STP-2": "ZSTP-2",
-        "Speciální TP-I": "STP-I",
-        "Speciální TP-II": "STP-II",
-        "Speciální TP-III": "STP-III",
-        "Speciální TP-1": "STP-1",
-        "Speciální TP-2": "STP-2",
-        "Kurz BZ-I": "Kurz BZ-I",
-        "Kurz BZ-II": "Kurz BZ-II",
-        "Kurz BZ-III": "Kurz BZ-III",
-        "Kurz BZ-IV": "Kurz BZ-IV",
-        "Kurz VL-I": "Kurz VL-I",
-        "Kurz VL-II": "Kurz VL-II",
-        "Kurz VL-III": "Kurz VL-III",
-        "Kurz VL-IV": "Kurz VL-IV",
-        "Kurz PSL": "Kurz PSL",
-        "Kurz PSL-I": "Kurz PSL-I",
-        "Kurz PSL-II": "Kurz PSL-II",
-        "Kurz ZP-I": "Kurz ZP-I",
-        "Kurz ZP-II": "Kurz ZP-II",
-        "Kurz VPL-I": "Kurz VPL-I",
-        "Kurz VPL-II": "Kurz VPL-II",
-        "Kurz STP-I": "Kurz STP-I",
-        "Kurz STP-II": "Kurz STP-II",
-        "VL-IV Instrukor": "Instr. VL",
-        "BZ-IV Instruktor": "Instr. BZ",
-        "PSL-II Instruktor": "Instr. PSL",
-        "ZP-II Instruktor": "Instr. ZP",
-        "VPL-II Instruktor": "Instr. VPL"
+    mapping = {
+        "Teorie a didaktika AČR-I":"TaD-I","Teorie a didaktika AČR-II":"TaD-II",
+        "Teorie a didaktika AČR-III":"TaD-III","Teorie a didaktika AČR-1":"TaD-1",
+        "Teorie a didaktika AČR-2":"TaD-2","Teorie a didaktika AČR-3":"TaD-3",
+        "Základy STP-I":"ZSTP-I","Základy STP-II":"ZSTP-II","Základy STP-III":"ZSTP-III",
+        "Základy STP-1":"ZSTP-1","Základy STP-2":"ZSTP-2",
+        "Speciální TP-I":"STP-I","Speciální TP-II":"STP-II","Speciální TP-III":"STP-III",
+        "Speciální TP-1":"STP-1","Speciální TP-2":"STP-2",
+        **{f"Kurz BZ-{i}":f"Kurz BZ-{i}" for i in ["I","II","III","IV"]},
+        **{f"Kurz VL-{i}":f"Kurz VL-{i}" for i in ["I","II","III","IV"]},
+        "Kurz PSL":"Kurz PSL","Kurz PSL-I":"Kurz PSL-I","Kurz PSL-II":"Kurz PSL-II",
+        "Kurz ZP-I":"Kurz ZP-I","Kurz ZP-II":"Kurz ZP-II",
+        "Kurz VPL-I":"Kurz VPL-I","Kurz VPL-II":"Kurz VPL-II",
+        "Kurz STP-I":"Kurz STP-I","Kurz STP-II":"Kurz STP-II",
+        "BZ-IV Instruktor":"Instr. BZ","VL-IV Instruktor":"Instr. VL",
+        "PSL-II Instruktor":"Instr. PSL","ZP-II Instruktor":"Instr. ZP",
+        "VPL-II Instruktor":"Instr. VPL"
     }
-    grade_required = {"TaD-III", "TaD-3", "ZSTP-III", "ZSTP-2", "STP-2", "Kurz STP-II"}
+    grade_req = {"TaD-III","TaD-3","ZSTP-III","ZSTP-2","STP-2","Kurz STP-II"}
 
-    # funkce pro extrakci předmětů
     def extract_subjects(student):
-        result = {col: "NE" for col in desired_columns}
-        subj_struct = student.get("subjects", {})
-        for sem, groups in subj_struct.items():
-            if not isinstance(groups, dict):
-                continue
-            for group, subj_dict in groups.items():
-                if not isinstance(subj_dict, dict):
-                    continue
-                for subj_full, details in subj_dict.items():
-                    abbr = subject_mapping.get(subj_full)
-                    if not abbr:
+        result = {c:"NE" for c in desired_columns}
+        def walk(d):
+            for k,v in d.items():
+                if isinstance(v, dict) and any(isinstance(x, dict) for x in v.values()):
+                    walk(v)
+                else:
+                    ab = mapping.get(k)
+                    if not ab:
                         continue
-                    # instruktor flag
-                    if isinstance(details, dict) and "instruktor" in details:
-                        value = "ANO" if details.get("instruktor") else "NE"
-                    # grade-required
-                    elif abbr in grade_required:
-                        grade = details.get("grade", "").strip() if isinstance(details, dict) else ""
-                        if grade:
-                            value = grade
-                        else:
-                            value = "ANO" if (isinstance(details, dict) and details.get("completed")) else "NE"
-                    # standard completed flag
+                    if isinstance(v, dict) and "instruktor" in v:
+                        val = "ANO" if v.get("instruktor") else "NE"
+                    elif ab in grade_req:
+                        val = v.get("grade","").strip() or ("ANO" if v.get("completed") else "NE")
                     else:
-                        value = "ANO" if (isinstance(details, dict) and details.get("completed")) or details else "NE"
-                    # prefer ANO
-                    if result.get(abbr) != "ANO" and value != "NE":
-                        result[abbr] = value
+                        val = "ANO" if (isinstance(v, dict) and v.get("completed")) or v else "NE"
+                    if result[ab] != "ANO" and val != "NE":
+                        result[ab] = val
+        walk(student.get("subjects", {}))
         return result
 
-    # sestavení a vykreslení tabulky
-    base_cols = ["Hodnost", "Jméno", "Příjmení", "Ročník", "Kohorta"]
-    summary_records = []
+    records = []
     for s in students:
         base = {
-            "Hodnost": s.get("hodnost", ""),
-            "Jméno": s.get("first_name", ""),
-            "Příjmení": s.get("last_name", ""),
-            "Ročník": s.get("cohort", ""),
-            "Kohorta": s.get("study_type", "")
+            "Hodnost": s.get("hodnost",""),
+            "Jméno": s.get("first_name",""),
+            "Příjmení": s.get("last_name",""),
+            "Ročník": s.get("cohort",""),
+            "Kohorta": s.get("study_type","")
         }
-        subj_vals = extract_subjects(s)
-        summary_records.append({**base, **subj_vals})
-    df = pd.DataFrame(summary_records, columns=base_cols + desired_columns)
+        rec = {**base, **extract_subjects(s)}
+        records.append(rec)
+
+    df = pd.DataFrame(records, columns=["Hodnost","Jméno","Příjmení","Ročník","Kohorta"]+desired_columns)
     st.dataframe(df, use_container_width=True)
     if st.button("Exportovat do Excelu"):
-        buffer = BytesIO()
-        with pd.ExcelWriter(buffer, engine="xlsxwriter") as writer:
+        buf = BytesIO()
+        with pd.ExcelWriter(buf, engine="xlsxwriter") as writer:
             df.to_excel(writer, index=False, sheet_name="Studenti")
-        st.download_button(label="Stáhnout Excel soubor",
-                           data=buffer.getvalue(),
-                           file_name="Studenti_souhrn.xlsx",
-                           mime="application/vnd.ms-excel")
+        st.download_button("Stáhnout Excel soubor",
+                           buf.getvalue(),
+                           "Studenti_souhrn.xlsx",
+                           "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
-# Funkce pro evaluace pomocí Supabase
+# Funkce pro evaluace
 def load_evaluations():
-    response = supabase.table("evaluations").select("data").eq("id", 1).execute()
-    if response.data and "data" in response.data[0]:
-        return response.data[0]["data"]
-    else:
-        return {}
+    res = supabase.table("evaluations").select("data").eq("id", 1).execute()
+    return res.data[0]["data"] if res.data and res.data[0].get("data") else {}
 
-def save_evaluations(new_data):
-    response = supabase.table("evaluations").update({"data": new_data}).eq("id", 1).execute()
-    return response
+def save_evaluations(data):
+    return supabase.table("evaluations").update({"data": data}).eq("id", 1).execute()
 
 if "evaluations" not in st.session_state:
     st.session_state.evaluations = load_evaluations()
@@ -278,83 +226,70 @@ with tabs[0]:
     selected_period = st.selectbox("Vyberte období", list(evaluation_periods.keys()))
     period_range = evaluation_periods[selected_period]
     st.write(f"Zvolená doba: {selected_period} ({period_range[0]} až {period_range[1]})")
-    key_period = f"{current_year}_{selected_period}"
-    saved_eval = st.session_state.evaluations.get(key_period, {})
-    if st.session_state.get("include_celkovy", False):
-        eval_items = items
-    else:
-        eval_items = [item for item in items if st.session_state.get(f"include_{item}", False)]
-    if not eval_items:
-        st.info("Vyberte alespoň jednu položku v sidebaru.")
+    key = f"{current_year}_{selected_period}"
+    saved = st.session_state.evaluations.get(key, {})
+    to_eval = items if include_celkovy else [i for i in items if st.session_state.get(f"include_{i}")]
+    if not to_eval:
+        st.info("Vyberte prosím alespoň jednu položku.")
     else:
         st.markdown("### Vyplňte nebo upravte vyhodnocení")
-        eval_data = {}
-        for item in eval_items:
-            default_text = saved_eval.get(item, {}).get("text", "")
-            st.markdown(f"Vyhodnocení pro {item}:")
-            text = st_quill(key=f"eval_{current_year}_{selected_period}_{item}", value=default_text)
-            default_finished = saved_eval.get(item, {}).get("finished", False)
-            finished_flag = st.checkbox("Hotovo", key=f"finished_form_{current_year}_{selected_period}_{item}",
-                                        value=default_finished)
-            eval_data[item] = {"text": text, "finished": finished_flag}
-        if st.button("Uložit vyhodnocení", key="save_eval"):
-            st.session_state.evaluations[key_period] = eval_data
+        new_data = {}
+        for it in to_eval:
+            txt = st_quill(key=f"eval_{current_year}_{selected_period}_{it}",
+                           value=saved.get(it, {}).get("text",""))
+            fin = st.checkbox("Hotovo", key=f"fin_{current_year}_{selected_period}_{it}",
+                              value=saved.get(it, {}).get("finished", False))
+            new_data[it] = {"text": txt, "finished": fin}
+        if st.button("Uložit vyhodnocení"):
+            st.session_state.evaluations[key] = new_data
             save_evaluations(st.session_state.evaluations)
             st.success("Vyhodnocení uloženo!")
 
 with tabs[1]:
     st.header("Historie vyhodnocení")
-    hist_year = st.number_input("Zvolte rok", min_value=2000, max_value=2100,
-                                 value=datetime.datetime.now().year, step=1, key="hist_year")
-    hist_period = st.selectbox("Vyberte období", list(evaluation_periods.keys()), key="hist_period")
-    key = f"{hist_year}_{hist_period}"
-    if key in st.session_state.evaluations:
-        st.subheader(f"Vyhodnocení za {key}")
-        evals = st.session_state.evaluations[key]
-        for item, data in evals.items():
-            finished_mark = " (hotovo)" if data.get("finished") else ""
-            st.markdown(f"### {item}{finished_mark}")
-            st.write(data.get("text", ""))
+    hy = st.number_input("Zvolte rok", 2000, 2100,
+                         value=datetime.datetime.now().year, key="hist_year")
+    hp = st.selectbox("Vyberte období", list(evaluation_periods.keys()), key="hist_period")
+    k = f"{hy}_{hp}"
+    if k in st.session_state.evaluations:
+        st.subheader(f"Vyhodnocení za {k}")
+        for it, d in st.session_state.evaluations[k].items():
+            mark = " (hotovo)" if d.get("finished") else ""
+            st.markdown(f"### {it}{mark}")
+            st.write(d.get("text",""))
     else:
-        st.info("Pro zvolený rok a období nejsou uložena vyhodnocení.")
+        st.info("Pro zvolený rok a období nejsou data.")
 
 with tabs[2]:
     dpp.run_dpp()
 
 with tabs[3]:
-    selected_year = st.number_input("Zvolte rok pro evidenci PR-I", min_value=2000, max_value=2100,
-                                    value=datetime.datetime.now().year, step=1)
-    pri.run_pri(selected_year)
+    y = st.number_input("Zvolte rok pro PR-I", 2000, 2100,
+                        value=datetime.datetime.now().year)
+    pri.run_pri(y)
 
 with tabs[4]:
     zsc.run_zsc()
 
 with tabs[5]:
     st.header("Student")
-    student_subtabs = st.tabs(["Vojenské předměty", "Přidat studenta", "Editace studenta", "Souhrn"])
-    with student_subtabs[0]:
-        st.subheader("Vojenské předměty")
+    sub = st.tabs(["Vojenské předměty", "Přidat studenta", "Editace studenta", "Souhrn"])
+    with sub[0]:
         cohort_tabs = st.tabs(["První ročník", "Druhý ročník", "Třetí ročník", "Čtvrtý ročník", "Pátý ročník"])
+        import student_1Bc, student_2Bc, student_3Bc, student_1Mgr, student_2Mgr
         with cohort_tabs[0]:
-            import student_1Bc
             student_1Bc.run_student()
         with cohort_tabs[1]:
-            import student_2Bc
             student_2Bc.run_student()
         with cohort_tabs[2]:
-            import student_3Bc
             student_3Bc.run_student()
         with cohort_tabs[3]:
-            import student_1Mgr
             student_1Mgr.run_student()
         with cohort_tabs[4]:
-            import student_2Mgr
             student_2Mgr.run_student()
-    with student_subtabs[1]:
-        import student
-        student.run_add_student()
-    with student_subtabs[2]:
-        import student
-        student.run_edit_student()
-    with student_subtabs[3]:
+    with sub[1]:
+        import student; student.run_add_student()
+    with sub[2]:
+        import student; student.run_edit_student()
+    with sub[3]:
         run_summary()
