@@ -12,11 +12,10 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ===== KONFIGURACE SUPABASE =====
+# Supabase
 SUPABASE_URL = st.secrets["supabase"]["supabase_url"]
 SUPABASE_KEY = st.secrets["supabase"]["supabase_key"]
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-# =================================
 
 def load_students():
     try:
@@ -28,9 +27,7 @@ def load_students():
 
 def save_student_record(student):
     try:
-        st.subheader("📋 Debug před uložení JSON:")
-        st.json(student["subjects"])
-        # Uložíme jen sloupec subjects
+        # ukládáme pouze subjects
         response = (
             supabase
             .table("students")
@@ -72,19 +69,20 @@ def run_student():
     students = load_students()
     cohort_students = [s for s in students if s.get("cohort") == COHORT]
     if not cohort_students:
-        st.info("Žádní studenti z tohoto ročníku nejsou zaregistrováni.")
+        st.info("Žádní studenti nejsou zaregistrováni.")
         return
+
     df = pd.DataFrame(cohort_students)
     st.dataframe(df, use_container_width=True)
 
-    selected_idx = st.selectbox(
+    idx = st.selectbox(
         "Vyberte studenta",
         options=df.index,
         format_func=lambda i: f"{df.loc[i,'hodnost']} {df.loc[i,'first_name']} {df.loc[i,'last_name']}"
     )
-    current_student = deepcopy(cohort_students[selected_idx])
+    current_student = deepcopy(cohort_students[idx])
 
-    # Zajistíme, že subjects existují a mají default strukturu
+    # inicializace subjects
     if "subjects" not in current_student:
         current_student["subjects"] = deepcopy(default_structure_1Bc)
     else:
@@ -94,69 +92,76 @@ def run_student():
                 current_student["subjects"][sem].setdefault(subj, deepcopy(details))
 
     st.markdown("## Předmětové hodnocení")
-    col_left, col_right = st.columns(2)
+    c1, c2 = st.columns(2)
 
-    with col_left:
+    with c1:
         st.subheader("Zimní semestr")
         st.markdown("#### Teorie a didaktika AČR-I")
-        with st.expander("Detail hodnocení", expanded=True):
-            zim_chk = st.checkbox(
+        with st.expander("Detail", expanded=True):
+            chk = st.checkbox(
                 "Zápočet",
-                value=current_student["subjects"]["zimni"]["Teorie a didaktika AČR-I"].get("completed", False),
+                value=current_student["subjects"]["zimni"]["Teorie a didaktika AČR-I"]["completed"],
                 key="1Bc_zim_TACRI"
             )
-            zim_teacher = st.text_input(
-                "Učitel, který zapsal",
-                value=current_student["subjects"]["zimni"]["Teorie a didaktika AČR-I"].get("teacher", ""),
+            teacher = st.text_input(
+                "Učitel",
+                value=current_student["subjects"]["zimni"]["Teorie a didaktika AČR-I"]["teacher"],
                 key="1Bc_zim_TACRI_teacher",
                 max_chars=10
             )
             current_student["subjects"]["zimni"]["Teorie a didaktika AČR-I"] = {
-                "completed": zim_chk,
-                "teacher": zim_teacher
+                "completed": chk, "teacher": teacher
             }
-            st.markdown("Splněno: **" + ("ANO" if zim_chk else "NE") + "**")
+            st.markdown("Splněno: **" + ("ANO" if chk else "NE") + "**")
 
-    with col_right:
+    with c2:
         st.subheader("Letní semestr")
         st.markdown("### Základy STP-I")
-        with st.expander("Detail hodnocení", expanded=True):
-            for subj in ["Vojenské lezení", "Boj zblízka", "Teoretický test", "Zápočet"]:
+        with st.expander("Detail", expanded=True):
+            for subj in ["Vojenské lezení","Boj zblízka","Teoretický test","Zápočet"]:
                 chk = st.checkbox(
                     subj,
-                    value=current_student["subjects"]["letni"]["Základy STP-I"].get(subj, {}).get("completed", False),
+                    value=current_student["subjects"]["letni"]["Základy STP-I"][subj]["completed"],
                     key=f"1Bc_let_STP1_{subj}"
                 )
                 teacher = st.text_input(
-                    "Učitel, který zapsal",
-                    value=current_student["subjects"]["letni"]["Základy STP-I"].get(subj, {}).get("teacher", ""),
+                    "Učitel",
+                    value=current_student["subjects"]["letni"]["Základy STP-I"][subj]["teacher"],
                     key=f"1Bc_let_STP1_{subj}_teacher",
                     max_chars=10
                 )
-                current_student["subjects"]["letni"]["Základy STP-I"][subj] = {"completed": chk, "teacher": teacher}
-            cond = all(current_student["subjects"]["letni"]["Základy STP-I"][s]["completed"]
-                       for s in ["Vojenské lezení", "Boj zblízka", "Teoretický test", "Zápočet"])
+                current_student["subjects"]["letni"]["Základy STP-I"][subj] = {
+                    "completed": chk, "teacher": teacher
+                }
+            cond = all(
+                current_student["subjects"]["letni"]["Základy STP-I"][s]["completed"]
+                for s in ["Vojenské lezení","Boj zblízka","Teoretický test","Zápočet"]
+            )
             st.markdown("Splněno: **" + ("ANO" if cond else "NE") + "**")
 
         st.markdown("### Speciální TP-I")
-        with st.expander("Detail hodnocení", expanded=True):
-            for subj in ["Kurz BZ-I", "Kurz VL-I", "Kurz PSL", "STP-I", "Zápočet"]:
+        with st.expander("Detail", expanded=True):
+            for subj in ["Kurz BZ-I","Kurz VL-I","Kurz PSL","STP-I","Zápočet"]:
                 chk = st.checkbox(
                     subj,
-                    value=current_student["subjects"]["letni"]["Speciální TP-I"].get(subj, {}).get("completed", False),
+                    value=current_student["subjects"]["letni"]["Speciální TP-I"][subj]["completed"],
                     key=f"1Bc_let_SPT1_{subj}"
                 )
                 teacher = st.text_input(
-                    "Učitel, který zapsal",
-                    value=current_student["subjects"]["letni"]["Speciální TP-I"].get(subj, {}).get("teacher", ""),
+                    "Učitel",
+                    value=current_student["subjects"]["letni"]["Speciální TP-I"][subj]["teacher"],
                     key=f"1Bc_let_SPT1_{subj}_teacher",
                     max_chars=10
                 )
-                current_student["subjects"]["letni"]["Speciální TP-I"][subj] = {"completed": chk, "teacher": teacher}
-            cond = all(current_student["subjects"]["letni"]["Speciální TP-I"][s]["completed"]
-                       for s in ["Kurz BZ-I", "Kurz VL-I", "Kurz PSL", "STP-I", "Zápočet"])
+                current_student["subjects"]["letni"]["Speciální TP-I"][subj] = {
+                    "completed": chk, "teacher": teacher
+                }
+            cond = all(
+                current_student["subjects"]["letni"]["Speciální TP-I"][s]["completed"]
+                for s in ["Kurz BZ-I","Kurz VL-I","Kurz PSL","STP-I","Zápočet"]
+            )
             st.markdown("Splněno: **" + ("ANO" if cond else "NE") + "**")
 
-    if st.button("Uložit hodnocení", key="save_1Bc_" + str(current_student.get("id_op", ""))):
+    if st.button("Uložit hodnocení", key="save_1Bc_" + str(current_student["id_op"])):
         save_student_record(current_student)
-        st.success("Předmětová hodnocení uložena!")
+        st.success("Hodnocení uloženo!")
