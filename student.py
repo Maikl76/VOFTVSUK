@@ -4,6 +4,7 @@ from supabase import create_client, Client
 import datetime
 from copy import deepcopy
 from io import BytesIO
+from streamlit.runtime.scriptrunner import RerunException, RerunData
 
 # ===== KONFIGURACE SUPABASE =====
 SUPABASE_URL = st.secrets["supabase"]["supabase_url"]
@@ -19,7 +20,6 @@ def load_students():
         st.error("Chyba při načítání studentů: " + str(e))
         return []
 
-
 def save_students(updated_student):
     try:
         resp = (
@@ -34,7 +34,6 @@ def save_students(updated_student):
         st.error("Chyba při aktualizaci studenta: " + str(e))
         return None
 
-
 def insert_student(new_student):
     try:
         resp = supabase.table("students").insert(new_student).execute()
@@ -42,7 +41,6 @@ def insert_student(new_student):
     except Exception as e:
         st.error("Chyba při vkládání nového studenta: " + str(e))
         return None
-
 
 def delete_student(student_id):
     try:
@@ -52,12 +50,11 @@ def delete_student(student_id):
         st.error("Chyba při mazání studenta: " + str(e))
         return None
 
-
 def run_add_student():
     cols = st.columns([8, 1])
     cols[0].header("Přidat nového studenta")
     if cols[1].button("Aktualizovat", key="update_add"):
-        st.experimental_rerun()
+        raise RerunException(RerunData(st.query_params))
 
     with st.form("add_student_form", clear_on_submit=True):
         hodnost       = st.selectbox("Hodnost", ["--","svob.","des.","čet.","rtn. Bc.","rtm. Bc."], key="add_hodnost")
@@ -76,31 +73,30 @@ def run_add_student():
 
         if st.form_submit_button("Přidat studenta"):
             new_student = {
-                "hodnost": hodnost,
-                "first_name": first_name,
-                "last_name": last_name,
+                "hodnost":      hodnost,
+                "first_name":   first_name,
+                "last_name":    last_name,
                 "date_of_birth": date_of_birth.strftime("%Y-%m-%d"),
-                "address": address,
-                "phone": phone,
-                "email": email,
-                "id_op": id_op,
-                "id_sp": id_sp,
-                "note": note,
-                "study_type": study_type,
-                "cohort": cohort,
-                "subjects": {},
+                "address":      address,
+                "phone":        phone,
+                "email":        email,
+                "id_op":        id_op,
+                "id_sp":        id_sp,
+                "note":         note,
+                "study_type":   study_type,
+                "cohort":       cohort,
+                "subjects":     {},
                 "is_graduated": False
             }
             insert_student(new_student)
             st.success("Nový student přidán!")
-            st.experimental_rerun()
-
+            raise RerunException(RerunData(st.query_params))
 
 def run_edit_student():
     cols = st.columns([8, 1])
     cols[0].header("Editace studenta")
     if cols[1].button("Aktualizovat", key="update_edit"):
-        st.experimental_rerun()
+        raise RerunException(RerunData(st.query_params))
 
     students = load_students()
     if not students:
@@ -139,7 +135,7 @@ def run_edit_student():
 
     selected_index = st.selectbox(
         "Vyberte studenta ke změně",
-        options=[i for i in range(len(filtered))],
+        options=list(range(len(filtered))),
         format_func=lambda i: f"{filtered[i]['hodnost']} {filtered[i]['first_name']} {filtered[i]['last_name']} ({filtered[i]['cohort']})",
         key="select_student_edit"
     )
@@ -180,37 +176,36 @@ def run_edit_student():
         if st.form_submit_button("Uložit změny"):
             updated = deepcopy(student)
             updated.update({
-                "hodnost":       new_hodnost,
-                "first_name":    new_first,
-                "last_name":     new_last,
-                "date_of_birth": new_dob.strftime("%Y-%m-%d"),
-                "address":       new_addr,
-                "phone":         new_phone,
-                "email":         new_email,
-                "id_op":         new_id_op,
-                "id_sp":         new_id_sp,
-                "note":          new_note,
-                "study_type":    new_type,
-                "cohort":        new_cohort,
-                "is_graduated":  graduated
+                "hodnost":        new_hodnost,
+                "first_name":     new_first,
+                "last_name":      new_last,
+                "date_of_birth":  new_dob.strftime("%Y-%m-%d"),
+                "address":        new_addr,
+                "phone":          new_phone,
+                "email":          new_email,
+                "id_op":          new_id_op,
+                "id_sp":          new_id_sp,
+                "note":           new_note,
+                "study_type":     new_type,
+                "cohort":         new_cohort,
+                "is_graduated":   graduated
             })
             save_students(updated)
             st.success("Student upraven!")
-            st.experimental_rerun()
+            raise RerunException(RerunData(st.query_params))
 
     st.markdown("## Smazání studenta")
     if st.checkbox("Opravdu smazat tohoto studenta?", key="confirm_delete"):
         if st.button("Smazat studenta", key="delete_student"):
             delete_student(student.get("id_op"))
             st.success("Student smazán!")
-            st.experimental_rerun()
-
+            raise RerunException(RerunData(st.query_params))
 
 def run_graduates():
     cols = st.columns([8, 1])
     cols[0].header("Absolventi")
     if cols[1].button("Aktualizovat", key="update_grads"):
-        st.experimental_rerun()
+        raise RerunException(RerunData(st.query_params))
 
     students = load_students()
     grads = [s for s in students if s.get("is_graduated", False)]
