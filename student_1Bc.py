@@ -27,7 +27,7 @@ def load_students():
 
 def save_student_record(student):
     try:
-        # ukládáme pouze subjects
+        # Uložíme pouze sloupec 'subjects', bez debug výpisů
         response = (
             supabase
             .table("students")
