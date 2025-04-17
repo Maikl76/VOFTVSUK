@@ -1,16 +1,8 @@
 import streamlit as st
 import pandas as pd
+from supabase import create_client, Client
 import datetime
 from copy import deepcopy
-from supabase import create_client, Client
-
-st.markdown("""
-<style>
-.stTextInput>div>div>input {
-    max-width: 150px;
-}
-</style>
-""", unsafe_allow_html=True)
 
 # ===== KONFIGURACE SUPABASE =====
 SUPABASE_URL = st.secrets["supabase"]["supabase_url"]
@@ -26,141 +18,167 @@ def load_students():
         st.error("Chyba při načítání studentů: " + str(e))
         return []
 
-def save_student_record(student):
+def save_students(updated_student):
     try:
         resp = (
             supabase
             .table("students")
-            .update({"subjects": student["subjects"]})
-            .eq("id_op", student["id_op"])
+            .update(updated_student)
+            .eq("id_op", updated_student["id_op"])
             .execute()
         )
         return resp.data
     except Exception as e:
-        st.error("Chyba při ukládání: " + str(e))
+        st.error("Chyba při aktualizaci studenta: " + str(e))
         return None
 
-default_structure_1Bc = {
-    "zimni": {
-        "Teorie a didaktika AČR-I": {"completed": False, "teacher": ""}
-    },
-    "letni": {
-        "Základy STP-I": {
-            "Vojenské lezení": {"completed": False, "teacher": ""},
-            "Boj zblízka": {"completed": False, "teacher": ""},
-            "Teoretický test": {"completed": False, "teacher": ""},
-            "Zápočet": {"completed": False, "teacher": ""}
-        },
-        "Speciální TP-I": {
-            "Kurz BZ-I": {"completed": False, "teacher": ""},
-            "Kurz VL-I": {"completed": False, "teacher": ""},
-            "Kurz PSL": {"completed": False, "teacher": ""},
-            "STP-I": {"completed": False, "teacher": ""},
-            "Zápočet": {"completed": False, "teacher": ""}
-        }
-    }
-}
+def insert_student(new_student):
+    try:
+        resp = supabase.table("students").insert(new_student).execute()
+        return resp.data
+    except Exception as e:
+        st.error("Chyba při vkládání nového studenta: " + str(e))
+        return None
 
-COHORT = "1. Bc."
-DISPLAY_NAME = "První ročník (1. Bc.)"
+def delete_student(student_id):
+    try:
+        resp = supabase.table("students").delete().eq("id_op", student_id).execute()
+        return resp.data
+    except Exception as e:
+        st.error("Chyba při mazání studenta: " + str(e))
+        return None
 
-def run_student():
-    st.title("Studenti - " + DISPLAY_NAME)
+def run_add_student():
+    cols = st.columns([8, 1])
+    cols[0].header("Přidat nového studenta")
+    if cols[1].button("Aktualizovat", key="update_add"):
+        st.experimental_rerun()
+
+    with st.form("add_student_form", clear_on_submit=True):
+        hodnost       = st.selectbox("Hodnost", ["--","svob.","des.","čet.","rtn. Bc.","rtm. Bc."], key="add_hodnost")
+        first_name    = st.text_input("Jméno", key="add_first_name")
+        last_name     = st.text_input("Příjmení", key="add_last_name")
+        date_of_birth = st.date_input("Datum narození", min_value=datetime.date(1960,1,1), key="add_dob")
+        address       = st.text_input("Bydliště", key="add_address")
+        phone         = st.text_input("Telefon", key="add_phone")
+        email         = st.text_input("Email", key="add_email")
+        id_op         = st.text_input("ID-OP", key="add_id_op")
+        id_sp         = st.text_input("ID-SP", key="add_id_sp")
+        note          = st.text_area("Poznámka", key="add_note")
+        study_type    = st.selectbox("Typ studia", ["Prezenční","Kombinované"], key="add_study_type")
+        cohorts       = ["1. Bc.","2. Bc.","3. Bc.","1. Mgr.","2. Mgr."]
+        cohort        = st.selectbox("Ročník", cohorts, key="add_cohort")
+
+        if st.form_submit_button("Přidat studenta"):
+            new_student = {
+                "hodnost": hodnost,
+                "first_name": first_name,
+                "last_name": last_name,
+                "date_of_birth": date_of_birth.strftime("%Y-%m-%d"),
+                "address": address,
+                "phone": phone,
+                "email": email,
+                "id_op": id_op,
+                "id_sp": id_sp,
+                "note": note,
+                "study_type": study_type,
+                "cohort": cohort,
+                "subjects": {},
+                "is_graduated": False
+            }
+            insert_student(new_student)
+            st.success("Nový student přidán!")
+            st.experimental_rerun()
+
+def run_edit_student():
+    cols = st.columns([8, 1])
+    cols[0].header("Editace studenta")
+    if cols[1].button("Aktualizovat", key="update_edit"):
+        st.experimental_rerun()
+
     students = load_students()
-    cohort_students = [s for s in students if s.get("cohort") == COHORT]
-    if not cohort_students:
-        st.info("Žádní studenti nejsou zaregistrováni.")
+    if not students:
+        st.info("Žádní studenti nejsou k dispozici ke změně.")
         return
 
-    # schováme id, subjects a is_graduated
-    df = pd.DataFrame(cohort_students)
-    df = df.drop(columns=["id", "subjects", "is_graduated"], errors="ignore")
+    df = pd.DataFrame(students)
+    df_display = df.drop(columns=["id","subjects","is_graduated"], errors="ignore")
+    st.dataframe(df_display, use_container_width=True)
+
+    selected = st.selectbox(
+        "Vyberte studenta ke změně",
+        options=df.index,
+        format_func=lambda i: f"{df.loc[i,'hodnost']} {df.loc[i,'first_name']} {df.loc[i,'last_name']} ({df.loc[i,'cohort']})",
+        key="select_student_edit"
+    )
+    student = df.loc[selected].to_dict()
+
+    with st.form("edit_student_form"):
+        hodnost       = st.selectbox("Hodnost", ["--","svob.","des.","čet.","rtn. Bc.","rtm. Bc."],
+                                     index=["--","svob.","des.","čet.","rtn. Bc.","rtm. Bc."].index(student.get("hodnost","--")),
+                                     key="edit_hodnost")
+        first_name    = st.text_input("Jméno", value=student.get("first_name",""), key="edit_first_name")
+        last_name     = st.text_input("Příjmení", value=student.get("last_name",""), key="edit_last_name")
+        dob_default   = datetime.datetime.strptime(student.get("date_of_birth","1970-01-01"), "%Y-%m-%d")
+        date_of_birth = st.date_input("Datum narození", value=dob_default, min_value=datetime.date(1960,1,1), key="edit_dob")
+        address       = st.text_input("Bydliště", value=student.get("address",""), key="edit_address")
+        phone         = st.text_input("Telefon", value=student.get("phone",""), key="edit_phone")
+        email         = st.text_input("Email", value=student.get("email",""), key="edit_email")
+        id_op         = st.text_input("ID-OP", value=student.get("id_op",""), key="edit_id_op")
+        id_sp         = st.text_input("ID-SP", value=student.get("id_sp",""), key="edit_id_sp")
+        note          = st.text_area("Poznámka", value=student.get("note",""), key="edit_note")
+        study_type    = st.selectbox("Typ studia", ["Prezenční","Kombinované"],
+                                     index=["Prezenční","Kombinované"].index(student.get("study_type","Prezenční")),
+                                     key="edit_study_type")
+        cohorts       = ["1. Bc.","2. Bc.","3. Bc.","1. Mgr.","2. Mgr."]
+        cohort        = st.selectbox("Ročník", cohorts,
+                                     index=cohorts.index(student.get("cohort",cohorts[0])),
+                                     key="edit_cohort")
+        graduated     = st.checkbox("Absolvent", value=student.get("is_graduated", False), key="edit_graduated")
+
+        if st.form_submit_button("Uložit změny"):
+            updated = deepcopy(student)
+            updated.update({
+                "hodnost":       hodnost,
+                "first_name":    first_name,
+                "last_name":     last_name,
+                "date_of_birth": date_of_birth.strftime("%Y-%m-%d"),
+                "address":       address,
+                "phone":         phone,
+                "email":         email,
+                "id_op":         id_op,
+                "id_sp":         id_sp,
+                "note":          note,
+                "study_type":    study_type,
+                "cohort":        cohort,
+                "is_graduated":  graduated
+            })
+            save_students(updated)
+            st.success("Student upraven!")
+            st.experimental_rerun()
+
+    st.markdown("## Smazání studenta")
+    if st.checkbox("Opravdu smazat tohoto studenta?", key="confirm_delete"):
+        if st.button("Smazat studenta", key="delete_student"):
+            delete_student(student.get("id_op"))
+            st.success("Student smazán!")
+            st.experimental_rerun()
+
+def run_graduates():
+    cols = st.columns([8, 1])
+    cols[0].header("Absolventi")
+    if cols[1].button("Aktualizovat", key="update_grads"):
+        st.experimental_rerun()
+
+    students = load_students()
+    grads = [s for s in students if s.get("is_graduated", False)]
+    if not grads:
+        st.info("Žádní absolventi nejsou evidováni.")
+        return
+
+    df = pd.DataFrame(grads)
+    df = df.drop(columns=["id","subjects","is_graduated"], errors="ignore")
     st.dataframe(df, use_container_width=True)
 
-    idx = st.selectbox(
-        "Vyberte studenta",
-        options=df.index,
-        format_func=lambda i: f"{cohort_students[i]['hodnost']} {cohort_students[i]['first_name']} {cohort_students[i]['last_name']}"
-    )
-    current_student = deepcopy(cohort_students[idx])
-
-    # inicializace subjects
-    if "subjects" not in current_student:
-        current_student["subjects"] = deepcopy(default_structure_1Bc)
-    else:
-        for sem, subs in default_structure_1Bc.items():
-            current_student["subjects"].setdefault(sem, {})
-            for subj, details in subs.items():
-                current_student["subjects"][sem].setdefault(subj, deepcopy(details))
-
-    st.markdown("## Předmětové hodnocení")
-    c1, c2 = st.columns(2)
-
-    with c1:
-        st.subheader("Zimní semestr")
-        st.markdown("#### Teorie a didaktika AČR-I")
-        with st.expander("Detail hodnocení", expanded=True):
-            chk = st.checkbox(
-                "Zápočet",
-                value=current_student["subjects"]["zimni"]["Teorie a didaktika AČR-I"]["completed"],
-                key="1Bc_zim_TACRI"
-            )
-            teacher = st.text_input(
-                "Učitel",
-                value=current_student["subjects"]["zimni"]["Teorie a didaktika AČR-I"]["teacher"],
-                key="1Bc_zim_TACRI_teacher", max_chars=10
-            )
-            current_student["subjects"]["zimni"]["Teorie a didaktika AČR-I"] = {
-                "completed": chk, "teacher": teacher
-            }
-            st.markdown("Splněno: **" + ("ANO" if chk else "NE") + "**")
-
-    with c2:
-        st.subheader("Letní semestr")
-        st.markdown("### Základy STP-I")
-        with st.expander("Detail hodnocení", expanded=True):
-            for subj in ["Vojenské lezení", "Boj zblízka", "Teoretický test", "Zápočet"]:
-                chk = st.checkbox(
-                    subj,
-                    value=current_student["subjects"]["letni"]["Základy STP-I"][subj]["completed"],
-                    key=f"1Bc_let_STP1_{subj}"
-                )
-                teacher = st.text_input(
-                    "Učitel",
-                    value=current_student["subjects"]["letni"]["Základy STP-I"][subj]["teacher"],
-                    key=f"1Bc_let_STP1_{subj}_teacher", max_chars=10
-                )
-                current_student["subjects"]["letni"]["Základy STP-I"][subj] = {
-                    "completed": chk, "teacher": teacher
-                }
-            cond = all(
-                current_student["subjects"]["letni"]["Základy STP-I"][s]["completed"]
-                for s in ["Vojenské lezení", "Boj zblízka", "Teoretický test", "Zápočet"]
-            )
-            st.markdown("Splněno: **" + ("ANO" if cond else "NE") + "**")
-
-        st.markdown("### Speciální TP-I")
-        with st.expander("Detail hodnocení", expanded=True):
-            for subj in ["Kurz BZ-I", "Kurz VL-I", "Kurz PSL", "STP-I", "Zápočet"]:
-                chk = st.checkbox(
-                    subj,
-                    value=current_student["subjects"]["letni"]["Speciální TP-I"][subj]["completed"],
-                    key=f"1Bc_let_SPT1_{subj}"
-                )
-                teacher = st.text_input(
-                    "Učitel",
-                    value=current_student["subjects"]["letni"]["Speciální TP-I"][subj]["teacher"],
-                    key=f"1Bc_let_SPT1_{subj}_teacher", max_chars=10
-                )
-                current_student["subjects"]["letni"]["Speciální TP-I"][subj] = {
-                    "completed": chk, "teacher": teacher
-                }
-            cond = all(
-                current_student["subjects"]["letni"]["Speciální TP-I"][s]["completed"]
-                for s in ["Kurz BZ-I", "Kurz VL-I", "Kurz PSL", "STP-I", "Zápočet"]
-            )
-            st.markdown("Splněno: **" + ("ANO" if cond else "NE") + "**")
-
-    if st.button("Uložit hodnocení", key="save_1Bc_" + str(current_student["id_op"])):
-        save_student_record(current_student)
-        st.success("Hodnocení uloženo!")
+if __name__ == "__main__":
+    pass
