@@ -28,15 +28,14 @@ def load_students():
 
 def save_student_record(student):
     try:
-        # Uložíme pouze sloupec 'subjects', bez debug výpisů
-        response = (
+        resp = (
             supabase
             .table("students")
             .update({"subjects": student["subjects"]})
             .eq("id_op", student["id_op"])
             .execute()
         )
-        return response.data
+        return resp.data
     except Exception as e:
         st.error("Chyba při ukládání: " + str(e))
         return None
@@ -68,20 +67,22 @@ COHORT = "1. Mgr."
 DISPLAY_NAME = "Čtvrtý ročník (1. Mgr.)"
 
 def run_student():
-    st.title("Studenti - " + DISPLAY_NAME)
+    st.title("Systém studentů - " + DISPLAY_NAME)
     students = load_students()
     cohort_students = [s for s in students if s.get("cohort") == COHORT]
     if not cohort_students:
         st.info("Žádní studenti nejsou zaregistrováni.")
         return
 
+    # schováme id, subjects a is_graduated
     df = pd.DataFrame(cohort_students)
+    df = df.drop(columns=["id", "subjects", "is_graduated"], errors="ignore")
     st.dataframe(df, use_container_width=True)
 
     idx = st.selectbox(
         "Vyberte studenta",
         options=df.index,
-        format_func=lambda i: f"{df.loc[i,'hodnost']} {df.loc[i,'first_name']} {df.loc[i,'last_name']}"
+        format_func=lambda i: f"{cohort_students[i]['hodnost']} {cohort_students[i]['first_name']} {cohort_students[i]['last_name']}"
     )
     current_student = deepcopy(cohort_students[idx])
 
@@ -100,17 +101,16 @@ def run_student():
     with left:
         st.subheader("Zimní semestr")
         st.markdown("#### Teorie a didaktika AČR-1")
-        with st.expander("Detail", expanded=True):
+        with st.expander("Detail hodnocení", expanded=True):
             chk = st.checkbox(
                 "Zápočet",
                 value=current_student["subjects"]["zimni"]["Teorie a didaktika AČR-1"]["completed"],
-                key="1Mgr_zim_TACR1_chk"
+                key="1Mgr_zim_TACR1"
             )
             teacher = st.text_input(
                 "Učitel",
                 value=current_student["subjects"]["zimni"]["Teorie a didaktika AČR-1"]["teacher"],
-                key="1Mgr_zim_TACR1_teacher",
-                max_chars=10
+                key="1Mgr_zim_TACR1_teacher", max_chars=10
             )
             current_student["subjects"]["zimni"]["Teorie a didaktika AČR-1"] = {
                 "completed": chk, "teacher": teacher
@@ -120,17 +120,16 @@ def run_student():
     with right:
         st.subheader("Letní semestr")
         st.markdown("#### Teorie a didaktika AČR-2")
-        with st.expander("Detail", expanded=True):
+        with st.expander("Detail hodnocení", expanded=True):
             chk = st.checkbox(
                 "Zápočet",
                 value=current_student["subjects"]["letni"]["Teorie a didaktika AČR-2"]["completed"],
-                key="1Mgr_let_TACR2_Zápočet"
+                key="1Mgr_let_TACR2"
             )
             teacher = st.text_input(
                 "Učitel",
                 value=current_student["subjects"]["letni"]["Teorie a didaktika AČR-2"]["teacher"],
-                key="1Mgr_let_TACR2_Zápočet_teacher",
-                max_chars=10
+                key="1Mgr_let_TACR2_teacher", max_chars=10
             )
             current_student["subjects"]["letni"]["Teorie a didaktika AČR-2"] = {
                 "completed": chk, "teacher": teacher
@@ -138,7 +137,7 @@ def run_student():
             st.markdown("Splněno: **" + ("ANO" if chk else "NE") + "**")
 
         st.markdown("#### Základy STP-2")
-        with st.expander("Detail", expanded=True):
+        with st.expander("Detail hodnocení", expanded=True):
             for subj in ["Vojenské lezení","Boj zblízka","Teoretický test","Zápočet","Zkouška"]:
                 chk = st.checkbox(
                     subj,
@@ -149,14 +148,12 @@ def run_student():
                     grade = st.text_input(
                         "Známka",
                         value=current_student["subjects"]["letni"]["Základy STP-2"][subj].get("grade",""),
-                        key="1Mgr_STP2_Zkouška_grade",
-                        max_chars=3
+                        key="1Mgr_STP2_Zkouška_grade", max_chars=3
                     )
                     teacher = st.text_input(
                         "Učitel",
                         value=current_student["subjects"]["letni"]["Základy STP-2"][subj].get("teacher",""),
-                        key="1Mgr_STP2_Zkouška_teacher",
-                        max_chars=10
+                        key="1Mgr_STP2_Zkouška_teacher", max_chars=10
                     )
                     current_student["subjects"]["letni"]["Základy STP-2"][subj] = {
                         "completed": chk, "grade": grade, "teacher": teacher
@@ -165,8 +162,7 @@ def run_student():
                     teacher = st.text_input(
                         "Učitel",
                         value=current_student["subjects"]["letni"]["Základy STP-2"][subj].get("teacher",""),
-                        key=f"1Mgr_STP2_{subj}_teacher",
-                        max_chars=10
+                        key=f"1Mgr_STP2_{subj}_teacher", max_chars=10
                     )
                     current_student["subjects"]["letni"]["Základy STP-2"][subj] = {
                         "completed": chk, "teacher": teacher
