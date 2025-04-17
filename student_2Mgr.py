@@ -28,15 +28,14 @@ def load_students():
 
 def save_student_record(student):
     try:
-        # Uložíme pouze sloupec 'subjects', bez debug výpisů
-        response = (
+        resp = (
             supabase
             .table("students")
             .update({"subjects": student["subjects"]})
             .eq("id_op", student["id_op"])
             .execute()
         )
-        return response.data
+        return resp.data
     except Exception as e:
         st.error("Chyba při ukládání: " + str(e))
         return None
@@ -64,20 +63,22 @@ COHORT = "2. Mgr."
 DISPLAY_NAME = "Pátý ročník (2. Mgr.)"
 
 def run_student():
-    st.title("Studenti - " + DISPLAY_NAME)
+    st.title("Systém studentů - " + DISPLAY_NAME)
     students = load_students()
     cohort_students = [s for s in students if s.get("cohort") == COHORT]
     if not cohort_students:
         st.info("Žádní studenti nejsou zaregistrováni.")
         return
 
+    # schováme id, subjects a is_graduated
     df = pd.DataFrame(cohort_students)
+    df = df.drop(columns=["id", "subjects", "is_graduated"], errors="ignore")
     st.dataframe(df, use_container_width=True)
 
     idx = st.selectbox(
         "Vyberte studenta",
         options=df.index,
-        format_func=lambda i: f"{df.loc[i,'hodnost']} {df.loc[i,'first_name']} {df.loc[i,'last_name']}"
+        format_func=lambda i: f"{cohort_students[i]['hodnost']} {cohort_students[i]['first_name']} {cohort_students[i]['last_name']}"
     )
     current_student = deepcopy(cohort_students[idx])
 
@@ -96,8 +97,7 @@ def run_student():
     with left:
         st.subheader("Zimní semestr")
         st.markdown("#### Speciální TP-2")
-        with st.expander("Detail", expanded=True):
-            # Kurz BZ-IV
+        with st.expander("Detail hodnocení", expanded=True):
             bziv_chk = st.checkbox(
                 "Kurz BZ-IV",
                 value=current_student["subjects"]["zimni"]["Speciální TP-2"]["Kurz BZ-IV"]["completed"],
@@ -105,7 +105,7 @@ def run_student():
             )
             bziv_instr = st.checkbox(
                 "Instruktor",
-                value=current_student["subjects"]["zimni"]["Speciální TP-2"]["Kurz BZ-IV"].get("instruktor", False),
+                value=current_student["subjects"]["zimni"]["Speciální TP-2"]["Kurz BZ-IV"]["instruktor"],
                 key="2Mgr_SPT2_BZIV_instr"
             )
             bziv_teacher = st.text_input(
@@ -117,8 +117,107 @@ def run_student():
                 "completed": bziv_chk, "instruktor": bziv_instr, "teacher": bziv_teacher
             }
 
-            # ostatní položky obdobně...
-            # (zachovejte původní logiku pro Kurz VL-IV, PSL-II, Klasifikovaný zápočet)
+            vliv_chk = st.checkbox(
+                "Kurz VL-IV",
+                value=current_student["subjects"]["zimni"]["Speciální TP-2"]["Kurz VL-IV"]["completed"],
+                key="2Mgr_SPT2_VLIV"
+            )
+            vliv_instr = st.checkbox(
+                "Instruktor",
+                value=current_student["subjects"]["zimni"]["Speciální TP-2"]["Kurz VL-IV"]["instruktor"],
+                key="2Mgr_SPT2_VLIV_instr"
+            )
+            vliv_teacher = st.text_input(
+                "Učitel",
+                value=current_student["subjects"]["zimni"]["Speciální TP-2"]["Kurz VL-IV"]["teacher"],
+                key="2Mgr_SPT2_VLIV_teacher", max_chars=10
+            )
+            current_student["subjects"]["zimni"]["Speciální TP-2"]["Kurz VL-IV"] = {
+                "completed": vliv_chk, "instruktor": vliv_instr, "teacher": vliv_teacher
+            }
+
+            psl_chk = st.checkbox(
+                "Kurz PSL-II",
+                value=current_student["subjects"]["zimni"]["Speciální TP-2"]["Kurz PSL-II"]["completed"],
+                key="2Mgr_SPT2_PSL"
+            )
+            psl_instr = st.checkbox(
+                "Instruktor",
+                value=current_student["subjects"]["zimni"]["Speciální TP-2"]["Kurz PSL-II"]["instruktor"],
+                key="2Mgr_SPT2_PSL_instr"
+            )
+            psl_teacher = st.text_input(
+                "Učitel",
+                value=current_student["subjects"]["zimni"]["Speciální TP-2"]["Kurz PSL-II"]["teacher"],
+                key="2Mgr_SPT2_PSL_teacher", max_chars=10
+            )
+            current_student["subjects"]["zimni"]["Speciální TP-2"]["Kurz PSL-II"] = {
+                "completed": psl_chk, "instruktor": psl_instr, "teacher": psl_teacher
+            }
+
+            klas_chk = st.checkbox(
+                "Klasifikovaný zápočet",
+                value=current_student["subjects"]["zimni"]["Speciální TP-2"]["Klasifikovaný zápočet"]["completed"],
+                key="2Mgr_SPT2_KLAS"
+            )
+            klas_grade = st.text_input(
+                "Známka",
+                value=current_student["subjects"]["zimni"]["Speciální TP-2"]["Klasifikovaný zápočet"]["grade"],
+                key="2Mgr_SPT2_KLAS_grade", max_chars=3
+            )
+            klas_teacher = st.text_input(
+                "Učitel",
+                value=current_student["subjects"]["zimni"]["Speciální TP-2"]["Klasifikovaný zápočet"]["teacher"],
+                key="2Mgr_SPT2_KLAS_teacher", max_chars=10
+            )
+            current_student["subjects"]["zimni"]["Speciální TP-2"]["Klasifikovaný zápočet"] = {
+                "completed": klas_chk, "grade": klas_grade, "teacher": klas_teacher
+            }
+
+            cond = (
+                bziv_chk and vliv_chk and psl_chk and klas_chk
+            )
+            current_student["subjects"]["zimni"]["Speciální TP-2"]["Splněno"] = {"value": "ANO" if cond else "NE"}
+            st.markdown("Splněno: **" + ("ANO" if cond else "NE") + "**")
+
+    with right:
+        st.subheader("Letní semestr")
+        st.markdown("#### Teorie a didaktika AČR-3")
+        with st.expander("Detail hodnocení", expanded=True):
+            zap1_chk = st.checkbox(
+                "Zápočet 1",
+                value=current_student["subjects"]["letni"]["Teorie a didaktika AČR-3"]["Zápočet 1"]["completed"],
+                key="2Mgr_TACR3_ZAP1"
+            )
+            zap1_teacher = st.text_input(
+                "Učitel",
+                value=current_student["subjects"]["letni"]["Teorie a didaktika AČR-3"]["Zápočet 1"]["teacher"],
+                key="2Mgr_TACR3_ZAP1_teacher", max_chars=10
+            )
+            zk_chk = st.checkbox(
+                "Zkouška",
+                value=current_student["subjects"]["letni"]["Teorie a didaktika AČR-3"]["Zkouška"]["completed"],
+                key="2Mgr_TACR3_ZK"
+            )
+            zk_grade = st.text_input(
+                "Známka",
+                value=current_student["subjects"]["letni"]["Teorie a didaktika AČR-3"]["Zkouška"]["grade"],
+                key="2Mgr_TACR3_ZK_grade", max_chars=3
+            )
+            zk_teacher = st.text_input(
+                "Učitel",
+                value=current_student["subjects"]["letni"]["Teorie a didaktika AČR-3"]["Zkouška"]["teacher"],
+                key="2Mgr_TACR3_ZK_teacher", max_chars=10
+            )
+            current_student["subjects"]["letni"]["Teorie a didaktika AČR-3"]["Zápočet 1"] = {
+                "completed": zap1_chk, "teacher": zap1_teacher
+            }
+            current_student["subjects"]["letni"]["Teorie a didaktika AČR-3"]["Zkouška"] = {
+                "completed": zk_chk, "grade": zk_grade, "teacher": zk_teacher
+            }
+            cond = zap1_chk and zk_chk
+            current_student["subjects"]["letni"]["Teorie a didaktika AČR-3"]["Splněno"] = {"value": "ANO" if cond else "NE"}
+            st.markdown("Splněno: **" + ("ANO" if cond else "NE") + "**")
 
     if st.button("Uložit hodnocení", key="save_2Mgr_" + str(current_student["id_op"])):
         save_student_record(current_student)
