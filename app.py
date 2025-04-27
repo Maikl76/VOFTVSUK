@@ -282,7 +282,9 @@ with tabs[0]:
                     eval_doc.add_page_break()
                     doc_items = items if st.session_state.get("include_celkovy", False) else to_eval
                     for item in doc_items:
-                        data = st.session_state.evaluations.get(key, {}).get(item, {})
+                        # Use current in-memory evaluation data (including uploaded tables)
+                        stored = st.session_state.evaluations.get(key, {})
+                        data = new.get(item, stored.get(item, {}))
                         eval_doc.add_heading(item, level=2)
                         if data.get("table"):
                             table_data = data["table"]
