@@ -6,6 +6,8 @@ import datetime
 import pandas as pd
 from io import BytesIO
 from docx.shared import Pt
+from docx import Document
+from docxcompose.composer import Composer
 from streamlit_quill import st_quill
 
 from supabase import create_client, Client
@@ -264,6 +266,42 @@ with tabs[0]:
             st.session_state.evaluations[key] = new
             save_evaluations(st.session_state.evaluations)
             st.success("Vyhodnocení uloženo!")
+        st.subheader("Generování dokumentů")
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("Generovat Word dokument", key="gen_word"):
+                try:
+                    intro_path = "upload/Úvodní strana vyhodnocení.docx"
+                    if os.path.exists(intro_path):
+                        intro_doc = Document(intro_path)
+                    else:
+                        st.error("Soubor Úvodní strana vyhodnocení.docx nebyl nalezen v adresáři upload.")
+                        intro_doc = Document()
+                    eval_doc = Document()
+                    eval_doc.add_heading(f"Vyhodnocení za: {period} roku {year}", level=0)
+                    eval_doc.add_page_break()
+                    doc_items = items if st.session_state.get("include_celkovy", False) else to_eval
+                    for item in doc_items:
+                        data = st.session_state.evaluations.get(key, {}).get(item, {})
+                        eval_doc.add_heading(item, level=2)
+                        if data.get("table"):
+                            table_data = data["table"]
+                            rows, cols = len(table_data), len(table_data[0])
+                            table = eval_doc.add_table(rows=rows, cols=cols)
+                            for i, row in enumerate(table_data):
+                                for j, cell in enumerate(row):
+                                    table.cell(i, j).text = str(cell)
+                            format_table(table)
+                        if data.get("text"):
+                            eval_doc.add_paragraph(data["text"])
+                    composer = Composer(intro_doc)
+                    composer.append(eval_doc)
+                    buffer = BytesIO()
+                    composer.save(buffer)
+                    buffer.seek(0)
+                    st.download_button("Stáhnout Word dokument", buffer.getvalue(), "Vyhodnoceni.docx")
+                except Exception as e:
+                    st.error(f"Chyba při generování dokumentu: {e}")
 
 with tabs[1]:
     st.header("Historie vyhodnocení")
