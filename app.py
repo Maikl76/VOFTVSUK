@@ -240,7 +240,7 @@ with tabs[0]:
                     st.info("Uložená tabulka:")
                     st.table(saved_table)
                 uploaded_file = st.file_uploader(
-                    "Vyberte soubor", type=["xlsx"], key=f"upload_{year}_{period}_{it}"
+                    "Vyberte soubor", type=["xlsx"], key=f"upload_apvvp_{year}_{period}"
                 )
                 table_data = None
                 if uploaded_file is not None:
@@ -259,7 +259,7 @@ with tabs[0]:
                     st.info("Uložená tabulka:")
                     st.table(saved_table)
                 uploaded_file = st.file_uploader(
-                    "Vyberte soubor", type=["xlsx"], key=f"upload_{year}_{period}_{it}"
+                    "Vyberte soubor", type=["xlsx"], key=f"upload_ekonomika_{year}_{period}"
                 )
                 table_data = None
                 if uploaded_file is not None:
@@ -276,7 +276,11 @@ with tabs[0]:
                 fin = st.checkbox(
                     "Hotovo", key=f"fin_{year}_{period}_{it}", value=saved.get(it, {}).get("finished", False)
                 )
-                new[it] = {"table": table_data if table_data is not None else saved.get(it, {}).get("table"), "text": txt, "finished": fin}
+                new[it] = {
+                    "table": table_data if table_data is not None else saved.get(it, {}).get("table"),
+                    "text": txt,
+                    "finished": fin
+                }
             else:
                 txt = st_quill(
                     key=f"eval_{year}_{period}_{it}", value=saved.get(it, {}).get("text", "")
