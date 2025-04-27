@@ -252,14 +252,37 @@ with tabs[0]:
                     except Exception:
                         st.error("Chyba při načítání excel souboru.")
                 new[it] = {"table": table_data if table_data is not None else saved.get(it, {}).get("table")}
-            else:
+            elif it == "Ekonomika":
+                st.markdown("##### Nahrajte excel soubor pro Ekonomiku:")
+                saved_table = saved.get(it, {}).get("table")
+                if saved_table:
+                    st.info("Uložená tabulka:")
+                    st.table(saved_table)
+                uploaded_file = st.file_uploader(
+                    "Vyberte soubor", type=["xlsx"], key=f"upload_{year}_{period}_{it}"
+                )
+                table_data = None
+                if uploaded_file is not None:
+                    try:
+                        df_tmp = pd.read_excel(uploaded_file)
+                        df_tmp = df_tmp.fillna("").astype(str)
+                        st.dataframe(df_tmp)
+                        table_data = [list(df_tmp.columns)] + df_tmp.values.tolist()
+                    except Exception:
+                        st.error("Chyba při načítání excel souboru pro Ekonomiku.")
                 txt = st_quill(
-                    key=f"eval_{year}_{period}_{it}",
-                    value=saved.get(it, {}).get("text", "")
+                    key=f"eval_{year}_{period}_{it}", value=saved.get(it, {}).get("text", "")
                 )
                 fin = st.checkbox(
-                    "Hotovo", key=f"fin_{year}_{period}_{it}",
-                    value=saved.get(it, {}).get("finished", False)
+                    "Hotovo", key=f"fin_{year}_{period}_{it}", value=saved.get(it, {}).get("finished", False)
+                )
+                new[it] = {"table": table_data if table_data is not None else saved.get(it, {}).get("table"), "text": txt, "finished": fin}
+            else:
+                txt = st_quill(
+                    key=f"eval_{year}_{period}_{it}", value=saved.get(it, {}).get("text", "")
+                )
+                fin = st.checkbox(
+                    "Hotovo", key=f"fin_{year}_{period}_{it}", value=saved.get(it, {}).get("finished", False)
                 )
                 new[it] = {"text": txt, "finished": fin}
         if st.button("Uložit vyhodnocení"):
