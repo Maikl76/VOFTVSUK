@@ -359,7 +359,7 @@ with tabs[5]:
         raise RerunException(RerunData(st.query_params))
 
     student_tabs = st.tabs([
-        "Vojenské předměty","Přidat studenta","Editace studenta","Souhrn"
+        "Vojenské předměty","Přidat studenta","Editace studenta","Souhrn","Absolventi"
     ])
     import student_1Bc, student_2Bc, student_3Bc, student_1Mgr, student_2Mgr, student
     with student_tabs[0]:
@@ -382,3 +382,5 @@ with tabs[5]:
         student.run_edit_student()
     with student_tabs[3]:
         run_summary()
+    with student_tabs[4]:
+        student.run_graduates()
