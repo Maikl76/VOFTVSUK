@@ -6,54 +6,56 @@ from io import BytesIO
 from supabase import create_client, Client
 
 # ===== KONFIGURACE SUPABASE =====
-from supabase import create_client, Client
-# Načtení hodnot ze st.secrets
 SUPABASE_URL = st.secrets["supabase"]["supabase_url"]
 SUPABASE_KEY = st.secrets["supabase"]["supabase_key"]
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 # =================================
 
+def safe_rerun():
+    try:
+        st.experimental_rerun()
+    except AttributeError:
+        pass
+
+
 def load_data():
     response = supabase.table("zsc_cesty").select("data").eq("id", 1).execute()
     if response.data and "data" in response.data[0]:
         return response.data[0]["data"]
-    else:
-        return {}
+    return {}
+
 
 def save_data(data):
-    response = supabase.table("zsc_cesty").update({"data": data}).eq("id", 1).execute()
-    return response
+    return supabase.table("zsc_cesty").update({"data": data}).eq("id", 1).execute()
+
 
 def load_budget():
     response = supabase.table("zsc_budget").select("value").eq("id", 1).execute()
     if response.data:
         return response.data[0]["value"]
-    else:
-        return 0.0
+    return 0.0
+
 
 def save_budget(budget):
-    response = supabase.table("zsc_budget").update({"value": budget}).eq("id", 1).execute()
-    return response
+    return supabase.table("zsc_budget").update({"value": budget}).eq("id", 1).execute()
+
 
 def load_history():
     response = supabase.table("zsc_historie").select("data").eq("id", 1).execute()
     if response.data and "data" in response.data[0]:
         return response.data[0]["data"]
-    else:
-        return {}
+    return {}
+
 
 def save_history(history):
-    response = supabase.table("zsc_historie").update({"data": history}).eq("id", 1).execute()
-    return response
+    return supabase.table("zsc_historie").update({"data": history}).eq("id", 1).execute()
+
 
 def run_zsc():
     st.title("Zahraniční cesty")
     st.markdown("Evidence zahraničních cest pro aktuální rok")
     if st.button("Aktualizovat", key="zsc_update"):
-        try:
-            st.experimental_rerun()
-        except AttributeError:
-            pass
+        safe_rerun()
 
     st.markdown("<hr style='border-top: 5px solid white;'>", unsafe_allow_html=True)
 
@@ -77,8 +79,7 @@ def run_zsc():
         termin = st.date_input("Termín")
         zadal = st.text_input("Zadal")
         poznamka = st.text_area("Poznámka")
-        submitted = st.form_submit_button("➕ Přidat cestu")
-        if submitted:
+        if st.form_submit_button("➕ Přidat cestu"):
             cena_za_osobu = letenka + ucast_poplatek + ubytovani + stravne + kapesne + os_vydaje
             celkem = cena_za_osobu * pocet_osob
             nova_cesta = {
@@ -97,12 +98,10 @@ def run_zsc():
                 "Poznámka": poznamka
             }
             rok = datetime.datetime.now().year
-            if str(rok) not in data:
-                data[str(rok)] = []
-            data[str(rok)].append(nova_cesta)
+            data.setdefault(str(rok), []).append(nova_cesta)
             save_data(data)
             st.success("Cesta byla přidána!")
-            st.experimental_rerun()
+            safe_rerun()
 
     st.markdown("<hr style='border-top: 5px solid white;'>", unsafe_allow_html=True)
     st.subheader("Přehled záznamů cest")
@@ -112,23 +111,27 @@ def run_zsc():
         st.info("Žádné záznamy.")
     else:
         st.dataframe(df, use_container_width=True)
-        row_to_delete = st.selectbox("Vyberte řádek k odstranění", options=df.index, key="zsc_select_delete", 
-                                     format_func=lambda idx: f"{df.loc[idx, 'Plánovaná cesta']} - {df.loc[idx, 'Termín']}")
+        row_to_delete = st.selectbox(
+            "Vyberte řádek k odstranění",
+            options=df.index,
+            key="zsc_select_delete",
+            format_func=lambda idx: f"{df.loc[idx, 'Plánovaná cesta']} - {df.loc[idx, 'Termín']}"
+        )
         if st.button("❌ Smazat řádek", key="zsc_delete_row"):
             data[str(rok)].pop(row_to_delete)
             save_data(data)
             st.success("Řádek smazán!")
-            st.experimental_rerun()
+            safe_rerun()
         if hasattr(st, "experimental_data_editor"):
             edited_df = st.experimental_data_editor(df, num_rows="dynamic", key="zsc_editor", use_container_width=True)
             if st.button("💾 Uložit změny", key="zsc_save_inline"):
                 data[str(rok)] = edited_df.to_dict(orient="records")
                 save_data(data)
                 st.success("Změny byly uloženy!")
-                st.experimental_rerun()
+                safe_rerun()
         else:
             st.info("Inline editor není podporován.")
-    
+
     st.markdown("<hr style='border-top: 5px solid white;'>", unsafe_allow_html=True)
     st.subheader(f"Přehled financí pro rok {rok}")
     total_budget = st.number_input("Zadejte celkový rozpočet (Kč):", min_value=0.0, step=1000.0, format="%.2f", key="zsc_total_budget")
@@ -141,7 +144,7 @@ def run_zsc():
     col1.metric("Celkový rozpočet", f"{total_budget:.2f} Kč")
     col2.metric("Vydáno", f"{total_expenses:.2f} Kč")
     col3.metric("Zbývá", f"{zbyva:.2f} Kč")
-    
+
     st.markdown("<hr style='border-top: 5px solid white;'>", unsafe_allow_html=True)
     st.subheader("Historie ZSC")
     history = load_history()
@@ -161,7 +164,7 @@ def run_zsc():
             st.info("Historie zatím neobsahuje záznamy.")
     else:
         st.info("Historie zatím není nastavena.")
-    
+
     st.markdown("<hr style='border-top: 5px solid white;'>", unsafe_allow_html=True)
     st.subheader("Uložení do historie a nový rok")
     if st.button("💾 Uložit a začít nový rok", key="zsc_new_year"):
@@ -171,7 +174,7 @@ def run_zsc():
         data[str(rok+1)] = []
         save_data(data)
         st.success(f"Data za {rok} uložena. Začínáme rok {rok+1}.")
-        st.experimental_rerun()
+        safe_rerun()
 
 if __name__ == "__main__":
     run_zsc()
