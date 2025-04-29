@@ -123,13 +123,50 @@ def run_dpp():
                                  format_func=lambda i: f"{df.loc[i,'Provede']} - {df.loc[i,'Název akce']}", key="edit")
         orig = data[str(current_year)][idx_edit]
         with st.form("edit_form"):
-            prov = st.text_area("Provede", value=orig.get("Provede", ""), height=30)
-            naz = st.text_area("Název akce", value=orig.get("Název akce", ""), height=30)
-            zad = st.text_area("Zadal", value=orig.get("Zadal", ""), height=30)
-            ch = st.number_input("Cena/h", min_value=0.0, value=float(orig.get("Cena/h", 0.0)), step=1.0, format="%.2f")
-            ph = st.number_input("Pč/h", min_value=0.0, value=float(orig.get("Pč/h", 0.0)), step=1.0, format="%.2f")
-            poz = st.text_area("Poznámka", value=orig.get("Poznámka", ""), height=60)
-            if st.form_submit_button("💾 Uložit změny"):
+            prov = st.text_area(
+                "Provede",
+                value=orig.get("Provede", ""),
+                height=30,
+                key="edit_provede"
+            )
+            naz = st.text_area(
+                "Název akce",
+                value=orig.get("Název akce", ""),
+                height=30,
+                key="edit_nazev"
+            )
+            zad = st.text_area(
+                "Zadal",
+                value=orig.get("Zadal", ""),
+                height=30,
+                key="edit_zadal"
+            )
+            ch = st.number_input(
+                "Cena/h",
+                min_value=0.0,
+                value=float(orig.get("Cena/h", 0.0)),
+                step=1.0,
+                format="%.2f",
+                key="edit_cena_h"
+            )
+            ph = st.number_input(
+                "Pč/h",
+                min_value=0.0,
+                value=float(orig.get("Pč/h", 0.0)),
+                step=1.0,
+                format="%.2f",
+                key="edit_pocet_h"
+            )
+            poz = st.text_area(
+                "Poznámka",
+                value=orig.get("Poznámka", ""),
+                height=60,
+                key="edit_poznamka"
+            )
+            if st.form_submit_button(
+                "💾 Uložit změny",
+                key="edit_submit"
+            ):
                 upd = {"Provede": prov, "Název akce": naz, "Cena/h": ch,
                        "Pč/h": ph, "Cena": round(ch * ph, 2),
                        "Zadal": zad, "Poznámka": poz}
