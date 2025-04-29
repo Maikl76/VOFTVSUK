@@ -86,7 +86,7 @@ def run_dpp():
             cena_h = st.number_input("Cena/h", min_value=0.0, step=1.0, format="%.2f")
             pocet_h = st.number_input("Pč/h", min_value=0.0, step=1.0, format="%.2f")
             poznamka = st.text_input("Poznámka")
-        submitted = st.form_submit_button("➕ Přidat řádek")
+        submitted = st.form_submit_button("➕ Přidat akci")
         if submitted:
             nova_akce = {
                 "Provede": provede,
