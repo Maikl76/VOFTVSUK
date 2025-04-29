@@ -1,9 +1,7 @@
 import streamlit as st
 import pandas as pd
 import datetime
-from io import BytesIO
 from supabase import create_client, Client
-import json
 
 # ===== KONFIGURACE SUPABASE =====
 SUPABASE_URL = st.secrets["supabase"]["supabase_url"]
@@ -22,8 +20,7 @@ def load_data():
     response = supabase.table("dpp_planovani").select("data").eq("id", 1).execute()
     if response.data and "data" in response.data[0]:
         return response.data[0]["data"]
-    else:
-        return {}
+    return {}
 
 
 def save_data(data):
@@ -34,8 +31,7 @@ def load_budget():
     response = supabase.table("dpp_budget").select("value").eq("id", 1).execute()
     if response.data:
         return response.data[0]["value"]
-    else:
-        return 0.0
+    return 0.0
 
 
 def save_budget(budget):
@@ -46,8 +42,7 @@ def load_history():
     response = supabase.table("dpp_historie").select("data").eq("id", 1).execute()
     if response.data and "data" in response.data[0]:
         return response.data[0]["data"]
-    else:
-        return {}
+    return {}
 
 
 def save_history(history):
@@ -69,16 +64,16 @@ def run_dpp():
     with cols[1]:
         st.markdown("**Klikni pro aktualizaci a zobrazení změn**")
 
-    # Načtení dat z session state nebo Supabase
+    # Načtení dat
     if "dpp_data" not in st.session_state:
         st.session_state.dpp_data = load_data()
     data = st.session_state.dpp_data
-
     if "dpp_total_budget" not in st.session_state:
         st.session_state.dpp_total_budget = load_budget()
 
     current_year = datetime.datetime.now().year
 
+    # Přidání nové akce
     hr()
     st.subheader("Přidat novou akci")
     with st.form("dpp_form", clear_on_submit=True):
@@ -91,105 +86,102 @@ def run_dpp():
             cena_h = st.number_input("Cena/h", min_value=0.0, step=1.0, format="%.2f")
             pocet_h = st.number_input("Pč/h", min_value=0.0, step=1.0, format="%.2f")
             poznamka = st.text_input("Poznámka")
-        submitted = st.form_submit_button("➕ Přidat akci")
-        if submitted:
-            nova_akce = {
-                "Provede": provede,
-                "Název akce": nazev_akce,
-                "Cena/h": cena_h,
-                "Pč/h": pocet_h,
-                "Cena": round(cena_h * pocet_h, 2),
-                "Zadal": zadal,
-                "Poznámka": poznamka
-            }
-            if str(current_year) not in data:
-                data[str(current_year)] = []
-            data[str(current_year)].append(nova_akce)
+        if st.form_submit_button("➕ Přidat akci"):
+            nova = {"Provede": provede, "Název akce": nazev_akce,
+                   "Cena/h": cena_h, "Pč/h": pocet_h,
+                   "Cena": round(cena_h * pocet_h, 2),
+                   "Zadal": zadal, "Poznámka": poznamka}
+            data.setdefault(str(current_year), []).append(nova)
             save_data(data)
             st.success("Akce byla přidána!")
             safe_rerun()
 
+    # Přehled a úpravy
     hr()
     st.subheader("Přehled záznamů DPP")
-    # Vytvoření DataFrame pro aktuální rok
-    if str(current_year) in data:
-        df = pd.DataFrame(data[str(current_year)])
-    else:
-        df = pd.DataFrame()
-
+    df = pd.DataFrame(data.get(str(current_year), []))
     if df.empty or "Cena" not in df.columns:
         st.info("Zatím nebyly přidány žádné akce.")
     else:
-        # Zobrazení tabulky
-        table_height = 40 * (len(df) + 1)
-        st.dataframe(df, use_container_width=True, height=table_height)
+        st.dataframe(df, use_container_width=True, height=40*(len(df)+1))
 
+        # Mazání
         hr()
         st.markdown("##### Mazání řádku")
-        row_to_delete = st.selectbox(
-            "Vyberte řádek k odstranění",
-            options=df.index,
-            key="dpp_select_delete",
-            format_func=lambda idx: f"{df.loc[idx, 'Provede']} - {df.loc[idx, 'Název akce']}"
-        )
-        if st.button("❌ Smazat vybraný řádek", key="dpp_delete_row"):
-            data[str(current_year)].pop(row_to_delete)
+        idx_del = st.selectbox("Vyberte řádek k odstranění", options=df.index,
+                                format_func=lambda i: f"{df.loc[i,'Provede']} - {df.loc[i,'Název akce']}", key="del")
+        if st.button("❌ Smazat vybraný řádek", key="del_btn"):
+            data[str(current_year)].pop(idx_del)
             save_data(data)
-            st.success("Řádek byl smazán!")
+            st.success("Řádek smazán!")
             safe_rerun()
 
+        # Editace
         hr()
-        st.subheader("Upravit existující záznam")
-        idx_to_edit = st.selectbox(
-            "Vyberte řádek k úpravě:",
-            options=df.index,
-            format_func=lambda i: f"{df.loc[i, 'Provede']} - {df.loc[i, 'Název akce']}",
-            key="edit_select"
-        )
-        original = data[str(current_year)][idx_to_edit]
+        st.markdown("##### Upravit existující záznam")
+        idx_edit = st.selectbox("Vyberte řádek k úpravě", options=df.index,
+                                 format_func=lambda i: f"{df.loc[i,'Provede']} - {df.loc[i,'Název akce']}", key="edit")
+        orig = data[str(current_year)][idx_edit]
         with st.form("edit_form"):
-            provede_edit = st.text_input("Provede", value=original.get("Provede", ""))
-            nazev_edit = st.text_input("Název akce", value=original.get("Název akce", ""))
-            zadal_edit = st.text_input("Zadal", value=original.get("Zadal", ""))
-            cena_h_edit = st.number_input(
-                "Cena/h", min_value=0.0, step=1.0, format="%.2f", value=float(original.get("Cena/h", 0.0))
-            )
-            pocet_h_edit = st.number_input(
-                "Pč/h", min_value=0.0, step=1.0, format="%.2f", value=float(original.get("Pč/h", 0.0))
-            )
-            poznamka_edit = st.text_input("Poznámka", value=original.get("Poznámka", ""))
-            submit_edit = st.form_submit_button("💾 Uložit změny")
-            if submit_edit:
-                updated = {
-                    "Provede": provede_edit,
-                    "Název akce": nazev_edit,
-                    "Zadal": zadal_edit,
-                    "Cena/h": cena_h_edit,
-                    "Pč/h": pocet_h_edit,
-                    "Cena": round(cena_h_edit * pocet_h_edit, 2),
-                    "Poznámka": poznamka_edit
-                }
-                data[str(current_year)][idx_to_edit] = updated
+            prov = st.text_input("Provede", value=orig.get("Provede", ""))
+            naz = st.text_input("Název akce", value=orig.get("Název akce", ""))
+            zad = st.text_input("Zadal", value=orig.get("Zadal", ""))
+            ch = st.number_input("Cena/h", min_value=0.0, value=float(orig.get("Cena/h", 0.0)), step=1.0, format="%.2f")
+            ph = st.number_input("Pč/h", min_value=0.0, value=float(orig.get("Pč/h", 0.0)), step=1.0, format="%.2f")
+            poz = st.text_input("Poznámka", value=orig.get("Poznámka", ""))
+            if st.form_submit_button("💾 Uložit změny"):
+                upd = {"Provede": prov, "Název akce": naz, "Cena/h": ch,
+                       "Pč/h": ph, "Cena": round(ch * ph, 2),
+                       "Zadal": zad, "Poznámka": poz}
+                data[str(current_year)][idx_edit] = upd
                 save_data(data)
-                st.success("Záznam byl úspěšně upraven!")
+                st.success("Záznam upraven!")
                 safe_rerun()
 
+    # Financování
     hr()
     st.subheader(f"Přehled financí pro rok {current_year}")
-    total_budget = st.number_input("Zadejte celkový rozpočet (Kč):", min_value=0.0, step=1000.0, format="%.2f", key="dpp_total_budget")
-    if st.button("💾 Uložit rozpočet", key="dpp_save_budget"):
-        save_budget(total_budget)
-        st.success("Rozpočet byl uložen!")
-    if not df.empty and "Cena" in df.columns:
-        celkove_cerpano = df["Cena"].sum()
-    else:
-        celkove_cerpano = 0.0
-    zbyva = total_budget - celkove_cerpano
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Celkový rozpočet", f"{total_budget:.2f} Kč")
-    col2.metric("Vydáno", f"{celkove_cerpano:.2f} Kč")
-    col3.metric("Zbývá", f"{zbyva:.2f} Kč")
+    total = st.number_input("Zadejte celkový rozpočet (Kč):", value=st.session_state.dpp_total_budget,
+                             min_value=0.0, step=1000.0, format="%.2f", key="budget")
+    if st.button("💾 Uložit rozpočet", key="save_bud"):
+        save_budget(total)
+        st.success("Rozpočet uložen!")
+    spent = df["Cena"].sum() if not df.empty else 0.0
+    remaining = total - spent
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Celkový rozpočet", f"{total:.2f} Kč")
+    c2.metric("Vydáno", f"{spent:.2f} Kč")
+    c3.metric("Zbývá", f"{remaining:.2f} Kč")
 
+    # Archiv
     hr()
     st.subheader("Uložení do historie a nový rok")
-    if st.button("💾 Uložit rok a začít nový", key="d
+    if st.button("💾 Uložit rok a začít nový", key="save_year"):
+        hist = load_history()
+        hist[str(current_year)] = data.get(str(current_year), [])
+        save_history(hist)
+        data[str(current_year+1)] = []
+        save_data(data)
+        st.success(f"Data za rok {current_year} uložena. Začátek roku {current_year+1}.")
+        safe_rerun()
+
+    # Zobrazení historie
+    hr()
+    st.subheader("Historie DPP")
+    history = load_history()
+    if history:
+        years = sorted(history.keys(), reverse=True)
+        yr = st.selectbox("Vyberte rok pro zobrazení", years)
+        dfh = pd.DataFrame(history.get(yr, []))
+        if not dfh.empty:
+            dfh["Cena"] = dfh["Cena"].map("{:.2f} Kč".format)
+            st.dataframe(dfh, use_container_width=True)
+            totalh = dfh["Cena"].str.replace(" Kč", "").astype(float).sum()
+            st.markdown(f"**Celkem za rok {yr}: {totalh:.2f} Kč**")
+        else:
+            st.info("Tento rok nemá záznamy.")
+    else:
+        st.info("Žádná historie.")
+
+if __name__ == "__main__":
+    run_dpp()
