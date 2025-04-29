@@ -113,10 +113,12 @@ def run_dpp():
     if df.empty or "Cena" not in df.columns:
         st.info("Zatím nebyly přidány žádné akce.")
     else:
+        # Předefinování pořadí sloupců
+        df = df[["Provede", "Název akce", "Cena/h", "Pč/h", "Cena", "Zadal", "Poznámka"]]
         table_height = 40 * (len(df) + 1)
         st.dataframe(df, use_container_width=True, height=table_height)
 
-        # Mazání
+        # Mazání řádku
         hr()
         st.markdown("##### Mazání řádku")
         row_to_delete = st.selectbox(
@@ -142,7 +144,7 @@ def run_dpp():
         )
         orig = data[str(current_year)][row_to_edit]
         with st.form("dpp_edit_form"):
-            provede_e = st.text_input("Provede", value=orig.get("Provede", ""))
+            provede_e = st.text_input("Provede", value=orig.get(" Provede", ""))
             nazev_e = st.text_input("Název akce", value=orig.get("Název akce", ""))
             zadal_e = st.text_input("Zadal", value=orig.get("Zadal", ""))
             cena_h_e = st.number_input(
