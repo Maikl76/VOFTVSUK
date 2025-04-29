@@ -116,19 +116,19 @@ def run_dpp():
             st.success("Řádek smazán!")
             safe_rerun()
 
-        # Editace
+        # Editace (textové pole širší pomocí text_area)
         hr()
         st.markdown("##### Upravit existující záznam")
         idx_edit = st.selectbox("Vyberte řádek k úpravě", options=df.index,
                                  format_func=lambda i: f"{df.loc[i,'Provede']} - {df.loc[i,'Název akce']}", key="edit")
         orig = data[str(current_year)][idx_edit]
         with st.form("edit_form"):
-            prov = st.text_input("Provede", value=orig.get("Provede", ""))
-            naz = st.text_input("Název akce", value=orig.get("Název akce", ""))
-            zad = st.text_input("Zadal", value=orig.get("Zadal", ""))
+            prov = st.text_area("Provede", value=orig.get("Provede", ""), height=30)
+            naz = st.text_area("Název akce", value=orig.get("Název akce", ""), height=30)
+            zad = st.text_area("Zadal", value=orig.get("Zadal", ""), height=30)
             ch = st.number_input("Cena/h", min_value=0.0, value=float(orig.get("Cena/h", 0.0)), step=1.0, format="%.2f")
             ph = st.number_input("Pč/h", min_value=0.0, value=float(orig.get("Pč/h", 0.0)), step=1.0, format="%.2f")
-            poz = st.text_input("Poznámka", value=orig.get("Poznámka", ""))
+            poz = st.text_area("Poznámka", value=orig.get("Poznámka", ""), height=60)
             if st.form_submit_button("💾 Uložit změny"):
                 upd = {"Provede": prov, "Název akce": naz, "Cena/h": ch,
                        "Pč/h": ph, "Cena": round(ch * ph, 2),
