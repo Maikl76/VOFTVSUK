@@ -1,8 +1,6 @@
 import streamlit as st
 import pandas as pd
-import json
 import datetime
-from io import BytesIO
 from supabase import create_client, Client
 
 # ===== KONFIGURACE SUPABASE =====
@@ -19,10 +17,8 @@ def safe_rerun():
 
 
 def load_data():
-    response = supabase.table("zsc_cesty").select("data").eq("id", 1).execute()
-    if response.data and "data" in response.data[0]:
-        return response.data[0]["data"]
-    return {}
+    resp = supabase.table("zsc_cesty").select("data").eq("id", 1).execute()
+    return resp.data[0]["data"] if resp.data and "data" in resp.data[0] else {}
 
 
 def save_data(data):
@@ -30,10 +26,8 @@ def save_data(data):
 
 
 def load_budget():
-    response = supabase.table("zsc_budget").select("value").eq("id", 1).execute()
-    if response.data:
-        return response.data[0]["value"]
-    return 0.0
+    resp = supabase.table("zsc_budget").select("value").eq("id", 1).execute()
+    return resp.data[0]["value"] if resp.data else 0.0
 
 
 def save_budget(budget):
@@ -41,24 +35,28 @@ def save_budget(budget):
 
 
 def load_history():
-    response = supabase.table("zsc_historie").select("data").eq("id", 1).execute()
-    if response.data and "data" in response.data[0]:
-        return response.data[0]["data"]
-    return {}
+    resp = supabase.table("zsc_historie").select("data").eq("id", 1).execute()
+    return resp.data[0]["data"] if resp.data and "data" in resp.data[0] else {}
 
 
 def save_history(history):
     return supabase.table("zsc_historie").update({"data": history}).eq("id", 1).execute()
 
 
+def hr():
+    st.markdown("<hr style='border-top:5px solid white;'>", unsafe_allow_html=True)
+
+
 def run_zsc():
     st.title("Zahraniční cesty")
     st.markdown("Evidence zahraničních cest pro aktuální rok")
+
     if st.button("Aktualizovat", key="zsc_update"):
         safe_rerun()
 
-    st.markdown("<hr style='border-top: 5px solid white;'>", unsafe_allow_html=True)
+    hr()
 
+    # Načtení dat
     if "zsc_data" not in st.session_state:
         st.session_state.zsc_data = load_data()
     data = st.session_state.zsc_data
@@ -66,106 +64,140 @@ def run_zsc():
     if "zsc_total_budget" not in st.session_state:
         st.session_state.zsc_total_budget = load_budget()
 
+    # Přidání nové cesty
     st.subheader("Přidat novou cestu")
     with st.form("zsc_form", clear_on_submit=True):
-        planovana_cesta = st.text_input("Plánovaná cesta", placeholder="Název destinace nebo popis")
+        planovana = st.text_input("Plánovaná cesta")
         letenka = st.number_input("Letenka (Kč)", min_value=0.0, step=100.0, format="%.2f")
-        ucast_poplatek = st.number_input("Účast poplatek (Kč)", min_value=0.0, step=100.0, format="%.2f")
+        poplatek = st.number_input("Účast poplatek (Kč)", min_value=0.0, step=100.0, format="%.2f")
         ubytovani = st.number_input("Ubytování (Kč)", min_value=0.0, step=100.0, format="%.2f")
         stravne = st.number_input("Stravné (Kč)", min_value=0.0, step=50.0, format="%.2f")
         kapesne = st.number_input("Kapesné (Kč)", min_value=0.0, step=50.0, format="%.2f")
-        os_vydaje = st.number_input("Os. výdaje (Kč)", min_value=0.0, step=50.0, format="%.2f")
-        pocet_osob = st.number_input("Počet osob", min_value=1, step=1)
+        vysl_os = st.number_input("Os. výdaje (Kč)", min_value=0.0, step=50.0, format="%.2f")
+        pocet_os = st.number_input("Počet osob", min_value=1, step=1)
         termin = st.date_input("Termín")
         zadal = st.text_input("Zadal")
         poznamka = st.text_area("Poznámka")
         if st.form_submit_button("➕ Přidat cestu"):
-            cena_za_osobu = letenka + ucast_poplatek + ubytovani + stravne + kapesne + os_vydaje
-            celkem = cena_za_osobu * pocet_osob
-            nova_cesta = {
-                "Plánovaná cesta": planovana_cesta,
+            cena_os = letenka + poplatek + ubytovani + stravne + kapesne + vysl_os
+            celkem = cena_os * pocet_os
+            nova = {
+                "Plánovaná cesta": planovana,
                 "Letenka (Kč)": letenka,
-                "Účast poplatek (Kč)": ucast_poplatek,
+                "Účast poplatek (Kč)": poplatek,
                 "Ubytování (Kč)": ubytovani,
                 "Stravné (Kč)": stravne,
                 "Kapesné (Kč)": kapesne,
-                "Os. výdaje (Kč)": os_vydaje,
-                "Cena za osobu (Kč)": round(cena_za_osobu, 2),
-                "Počet osob": pocet_osob,
+                "Os. výdaje (Kč)": vysl_os,
+                "Cena za osobu (Kč)": round(cena_os, 2),
+                "Počet osob": pocet_os,
                 "Celkem (Kč)": round(celkem, 2),
                 "Termín": termin.strftime("%Y-%m-%d"),
                 "Zadal": zadal,
                 "Poznámka": poznamka
             }
             rok = datetime.datetime.now().year
-            data.setdefault(str(rok), []).append(nova_cesta)
+            data.setdefault(str(rok), []).append(nova)
             save_data(data)
-            st.success("Cesta byla přidána!")
+            st.success("Cesta přidána!")
             safe_rerun()
 
-    st.markdown("<hr style='border-top: 5px solid white;'>", unsafe_allow_html=True)
+    hr()
+
+    # Přehled a editace záznamů
     st.subheader("Přehled záznamů cest")
     rok = datetime.datetime.now().year
     df = pd.DataFrame(data.get(str(rok), []))
     if df.empty:
         st.info("Žádné záznamy.")
-    else:
-        st.dataframe(df, use_container_width=True)
-        row_to_delete = st.selectbox(
-            "Vyberte řádek k odstranění",
-            options=df.index,
-            key="zsc_select_delete",
-            format_func=lambda idx: f"{df.loc[idx, 'Plánovaná cesta']} - {df.loc[idx, 'Termín']}"
-        )
-        if st.button("❌ Smazat řádek", key="zsc_delete_row"):
-            data[str(rok)].pop(row_to_delete)
+        return
+
+    # Mazání
+    row_del = st.selectbox(
+        "Vyberte řádek k odstranění", options=df.index,
+        format_func=lambda i: f"{df.loc[i, 'Plánovaná cesta']} - {df.loc[i, 'Termín']}",
+        key="zsc_del"
+    )
+    if st.button("❌ Smazat řádek", key="zsc_del_btn"):
+        data[str(rok)].pop(row_del)
+        save_data(data)
+        st.success("Záznam smazán!")
+        safe_rerun()
+
+    hr()
+    st.markdown("##### Upravit záznam")
+    row_edit = st.selectbox(
+        "Vyberte řádek k úpravě", options=df.index,
+        format_func=lambda i: f"{df.loc[i, 'Plánovaná cesta']} - {df.loc[i, 'Termín']}",
+        key="zsc_edit"
+    )
+    orig = data[str(rok)][row_edit]
+    with st.form(f"zsc_edit_form_{row_edit}"):
+        plan_e = st.text_input("Plánovaná cesta", value=orig.get("Plánovaná cesta", ""))
+        let_e = st.number_input("Letenka (Kč)", min_value=0.0, value=orig.get("Letenka (Kč)", 0.0), step=100.0, format="%.2f")
+        pop_e = st.number_input("Účast poplatek (Kč)", min_value=0.0, value=orig.get("Účast poplatek (Kč)", 0.0), step=100.0, format="%.2f")
+        ubyt_e = st.number_input("Ubytování (Kč)", min_value=0.0, value=orig.get("Ubytování (Kč)", 0.0), step=100.0, format="%.2f")
+        str_e = st.number_input("Stravné (Kč)", min_value=0.0, value=orig.get("Stravné (Kč)", 0.0), step=50.0, format="%.2f")
+        kap_e = st.number_input("Kapesné (Kč)", min_value=0.0, value=orig.get("Kapesné (Kč)", 0.0), step=50.0, format="%.2f")
+        osv_e = st.number_input("Os. výdaje (Kč)", min_value=0.0, value=orig.get("Os. výdaje (Kč)", 0.0), step=50.0, format="%.2f")
+        poc_e = st.number_input("Počet osob", min_value=1, value=orig.get("Počet osob", 1), step=1)
+        term_e = st.date_input("Termín", value=datetime.datetime.strptime(orig.get("Termín", "1970-01-01"), "%Y-%m-%d"))
+        zad_e = st.text_input("Zadal", value=orig.get("Zadal", ""))
+        poz_e = st.text_area("Poznámka", value=orig.get("Poznámka", ""))
+        if st.form_submit_button("💾 Uložit změny", key=f"zsc_edit_submit_{row_edit}"):
+            cena_os_e = let_e + pop_e + ubyt_e + str_e + kap_e + osv_e
+            celkem_e = cena_os_e * poc_e
+            updated = {
+                "Plánovaná cesta": plan_e,
+                "Letenka (Kč)": let_e,
+                "Účast poplatek (Kč)": pop_e,
+                "Ubytování (Kč)": ubyt_e,
+                "Stravné (Kč)": str_e,
+                "Kapesné (Kč)": kap_e,
+                "Os. výdaje (Kč)": osv_e,
+                "Cena za osobu (Kč)": round(cena_os_e, 2),
+                "Počet osob": poc_e,
+                "Celkem (Kč)": round(celkem_e, 2),
+                "Termín": term_e.strftime("%Y-%m-%d"),
+                "Zadal": zad_e,
+                "Poznámka": poz_e
+            }
+            data[str(rok)][row_edit] = updated
             save_data(data)
-            st.success("Řádek smazán!")
+            st.success("Záznam upraven!")
             safe_rerun()
-        if hasattr(st, "experimental_data_editor"):
-            edited_df = st.experimental_data_editor(df, num_rows="dynamic", key="zsc_editor", use_container_width=True)
-            if st.button("💾 Uložit změny", key="zsc_save_inline"):
-                data[str(rok)] = edited_df.to_dict(orient="records")
-                save_data(data)
-                st.success("Změny byly uloženy!")
-                safe_rerun()
-        else:
-            st.info("Inline editor není podporován.")
 
-    st.markdown("<hr style='border-top: 5px solid white;'>", unsafe_allow_html=True)
+    hr()
     st.subheader(f"Přehled financí pro rok {rok}")
-    total_budget = st.number_input("Zadejte celkový rozpočet (Kč):", min_value=0.0, step=1000.0, format="%.2f", key="zsc_total_budget")
-    if st.button("💾 Uložit rozpočet", key="zsc_save_budget"):
-        save_budget(total_budget)
+    total_bud = st.number_input("Zadejte celkový rozpočet (Kč):", value=st.session_state.zsc_total_budget, min_value=0.0, step=1000.0, format="%.2f", key="zsc_budget")
+    if st.button("💾 Uložit rozpočet", key="zsc_budget_save"):
+        save_budget(total_bud)
         st.success("Rozpočet uložen!")
-    total_expenses = df["Celkem (Kč)"].sum() if not df.empty and "Celkem (Kč)" in df.columns else 0.0
-    zbyva = total_budget - total_expenses
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Celkový rozpočet", f"{total_budget:.2f} Kč")
-    col2.metric("Vydáno", f"{total_expenses:.2f} Kč")
-    col3.metric("Zbývá", f"{zbyva:.2f} Kč")
+    spent = df["Celkem (Kč)"].sum() if not df.empty else 0.0
+    remaining = total_bud - spent
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Celkový rozpočet", f"{total_bud:.2f} Kč")
+    c2.metric("Vydáno", f"{spent:.2f} Kč")
+    c3.metric("Zbývá", f"{remaining:.2f} Kč")
 
-    st.markdown("<hr style='border-top: 5px solid white;'>", unsafe_allow_html=True)
+    hr()
     st.subheader("Historie ZSC")
     history = load_history()
     if history:
-        roky_hist = sorted(history.keys(), reverse=True)
-        if roky_hist:
-            vybrany_rok = st.selectbox("Vyberte rok pro zobrazení:", roky_hist)
-            hist_df = pd.DataFrame(history[vybrany_rok])
-            if not hist_df.empty:
-                hist_df["Celkem (Kč)"] = hist_df["Celkem (Kč)"].map("{:.2f} Kč".format)
-                st.dataframe(hist_df, use_container_width=True)
-                total_hist = hist_df["Celkem (Kč)"].str.replace(" Kč", "").astype(float).sum()
-                st.markdown(f"**Celková částka za {vybrany_rok}: {total_hist:.2f} Kč**")
-            else:
-                st.info("Tento rok neobsahuje záznamy.")
+        years = sorted(history.keys(), reverse=True)
+        sel = st.selectbox("Vyberte rok pro zobrazení", years)
+        hdf = pd.DataFrame(history.get(sel, []))
+        if not hdf.empty:
+            hdf["Celkem (Kč)"] = hdf["Celkem (Kč)"].map("{:.2f} Kč".format)
+            st.dataframe(hdf, use_container_width=True)
+            total_hist = hdf["Celkem (Kč)"].str.replace(" Kč", "").astype(float).sum()
+            st.markdown(f"**Celková částka za {sel}: {total_hist:.2f} Kč**")
         else:
-            st.info("Historie zatím neobsahuje záznamy.")
+            st.info("Tento rok neobsahuje záznamy.")
     else:
         st.info("Historie zatím není nastavena.")
 
-    st.markdown("<hr style='border-top: 5px solid white;'>", unsafe_allow_html=True)
+    hr()
     st.subheader("Uložení do historie a nový rok")
     if st.button("💾 Uložit a začít nový rok", key="zsc_new_year"):
         history = load_history()
