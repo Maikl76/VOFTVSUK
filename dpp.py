@@ -129,24 +129,23 @@ def run_dpp():
         )
         orig = data[str(current_year)][idx_edit]
 
-        # Každý formulář a widget má unikátní klíč podle idx_edit
         with st.form(f"edit_form_{idx_edit}"):
             prov = st.text_area(
                 "Provede",
                 value=orig.get("Provede", ""),
-                height=30,
+                height=100,  # min. 68 px
                 key=f"edit_provede_{idx_edit}"
             )
             naz = st.text_area(
                 "Název akce",
                 value=orig.get("Název akce", ""),
-                height=30,
+                height=100,
                 key=f"edit_nazev_{idx_edit}"
             )
             zad = st.text_area(
                 "Zadal",
                 value=orig.get("Zadal", ""),
-                height=30,
+                height=100,
                 key=f"edit_zadal_{idx_edit}"
             )
             ch = st.number_input(
@@ -168,7 +167,7 @@ def run_dpp():
             poz = st.text_area(
                 "Poznámka",
                 value=orig.get("Poznámka", ""),
-                height=60,
+                height=150,
                 key=f"edit_poznamka_{idx_edit}"
             )
             if st.form_submit_button(
