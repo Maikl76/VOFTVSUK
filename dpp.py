@@ -15,43 +15,35 @@ def safe_rerun():
     except AttributeError:
         pass
 
-
 def load_data():
-    response = supabase.table("dpp_planovani").select("data").eq("id", 1).execute()
-    if response.data and "data" in response.data[0]:
-        return response.data[0]["data"]
+    resp = supabase.table("dpp_planovani").select("data").eq("id", 1).execute()
+    if resp.data and "data" in resp.data[0]:
+        return resp.data[0]["data"]
     return {}
-
 
 def save_data(data):
     return supabase.table("dpp_planovani").update({"data": data}).eq("id", 1).execute()
 
-
 def load_budget():
-    response = supabase.table("dpp_budget").select("value").eq("id", 1).execute()
-    if response.data:
-        return response.data[0]["value"]
+    resp = supabase.table("dpp_budget").select("value").eq("id", 1).execute()
+    if resp.data:
+        return resp.data[0]["value"]
     return 0.0
-
 
 def save_budget(budget):
     return supabase.table("dpp_budget").update({"value": budget}).eq("id", 1).execute()
 
-
 def load_history():
-    response = supabase.table("dpp_historie").select("data").eq("id", 1).execute()
-    if response.data and "data" in response.data[0]:
-        return response.data[0]["data"]
+    resp = supabase.table("dpp_historie").select("data").eq("id", 1).execute()
+    if resp.data and "data" in resp.data[0]:
+        return resp.data[0]["data"]
     return {}
-
 
 def save_history(history):
     return supabase.table("dpp_historie").update({"data": history}).eq("id", 1).execute()
 
-
 def hr():
     st.markdown("<hr style='border-top: 3px solid #fff;'>", unsafe_allow_html=True)
-
 
 def run_dpp():
     st.title("Plánování DPP")
@@ -68,6 +60,7 @@ def run_dpp():
     if "dpp_data" not in st.session_state:
         st.session_state.dpp_data = load_data()
     data = st.session_state.dpp_data
+
     if "dpp_total_budget" not in st.session_state:
         st.session_state.dpp_total_budget = load_budget()
 
@@ -87,10 +80,15 @@ def run_dpp():
             pocet_h = st.number_input("Pč/h", min_value=0.0, step=1.0, format="%.2f")
             poznamka = st.text_input("Poznámka")
         if st.form_submit_button("➕ Přidat akci"):
-            nova = {"Provede": provede, "Název akce": nazev_akce,
-                   "Cena/h": cena_h, "Pč/h": pocet_h,
-                   "Cena": round(cena_h * pocet_h, 2),
-                   "Zadal": zadal, "Poznámka": poznamka}
+            nova = {
+                "Provede": provede,
+                "Název akce": nazev_akce,
+                "Cena/h": cena_h,
+                "Pč/h": pocet_h,
+                "Cena": round(cena_h * pocet_h, 2),
+                "Zadal": zadal,
+                "Poznámka": poznamka
+            }
             data.setdefault(str(current_year), []).append(nova)
             save_data(data)
             st.success("Akce byla přidána!")
@@ -108,38 +106,48 @@ def run_dpp():
         # Mazání
         hr()
         st.markdown("##### Mazání řádku")
-        idx_del = st.selectbox("Vyberte řádek k odstranění", options=df.index,
-                                format_func=lambda i: f"{df.loc[i,'Provede']} - {df.loc[i,'Název akce']}", key="del")
+        idx_del = st.selectbox(
+            "Vyberte řádek k odstranění",
+            options=df.index,
+            format_func=lambda i: f"{df.loc[i,'Provede']} - {df.loc[i,'Název akce']}",
+            key="del"
+        )
         if st.button("❌ Smazat vybraný řádek", key="del_btn"):
             data[str(current_year)].pop(idx_del)
             save_data(data)
             st.success("Řádek smazán!")
             safe_rerun()
 
-        # Editace (textové pole širší pomocí text_area)
+        # Editace
         hr()
         st.markdown("##### Upravit existující záznam")
-        idx_edit = st.selectbox("Vyberte řádek k úpravě", options=df.index,
-                                 format_func=lambda i: f"{df.loc[i,'Provede']} - {df.loc[i,'Název akce']}", key="edit")
+        idx_edit = st.selectbox(
+            "Vyberte řádek k úpravě",
+            options=df.index,
+            format_func=lambda i: f"{df.loc[i,'Provede']} - {df.loc[i,'Název akce']}",
+            key="edit"
+        )
         orig = data[str(current_year)][idx_edit]
-        with st.form("edit_form"):
+
+        # Každý formulář a widget má unikátní klíč podle idx_edit
+        with st.form(f"edit_form_{idx_edit}"):
             prov = st.text_area(
                 "Provede",
                 value=orig.get("Provede", ""),
                 height=30,
-                key="edit_provede"
+                key=f"edit_provede_{idx_edit}"
             )
             naz = st.text_area(
                 "Název akce",
                 value=orig.get("Název akce", ""),
                 height=30,
-                key="edit_nazev"
+                key=f"edit_nazev_{idx_edit}"
             )
             zad = st.text_area(
                 "Zadal",
                 value=orig.get("Zadal", ""),
                 height=30,
-                key="edit_zadal"
+                key=f"edit_zadal_{idx_edit}"
             )
             ch = st.number_input(
                 "Cena/h",
@@ -147,7 +155,7 @@ def run_dpp():
                 value=float(orig.get("Cena/h", 0.0)),
                 step=1.0,
                 format="%.2f",
-                key="edit_cena_h"
+                key=f"edit_cena_h_{idx_edit}"
             )
             ph = st.number_input(
                 "Pč/h",
@@ -155,21 +163,27 @@ def run_dpp():
                 value=float(orig.get("Pč/h", 0.0)),
                 step=1.0,
                 format="%.2f",
-                key="edit_pocet_h"
+                key=f"edit_pocet_h_{idx_edit}"
             )
             poz = st.text_area(
                 "Poznámka",
                 value=orig.get("Poznámka", ""),
                 height=60,
-                key="edit_poznamka"
+                key=f"edit_poznamka_{idx_edit}"
             )
             if st.form_submit_button(
                 "💾 Uložit změny",
-                key="edit_submit"
+                key=f"edit_submit_{idx_edit}"
             ):
-                upd = {"Provede": prov, "Název akce": naz, "Cena/h": ch,
-                       "Pč/h": ph, "Cena": round(ch * ph, 2),
-                       "Zadal": zad, "Poznámka": poz}
+                upd = {
+                    "Provede": prov,
+                    "Název akce": naz,
+                    "Cena/h": ch,
+                    "Pč/h": ph,
+                    "Cena": round(ch * ph, 2),
+                    "Zadal": zad,
+                    "Poznámka": poz
+                }
                 data[str(current_year)][idx_edit] = upd
                 save_data(data)
                 st.success("Záznam upraven!")
@@ -178,8 +192,14 @@ def run_dpp():
     # Financování
     hr()
     st.subheader(f"Přehled financí pro rok {current_year}")
-    total = st.number_input("Zadejte celkový rozpočet (Kč):", value=st.session_state.dpp_total_budget,
-                             min_value=0.0, step=1000.0, format="%.2f", key="budget")
+    total = st.number_input(
+        "Zadejte celkový rozpočet (Kč):",
+        value=st.session_state.dpp_total_budget,
+        min_value=0.0,
+        step=1000.0,
+        format="%.2f",
+        key="budget"
+    )
     if st.button("💾 Uložit rozpočet", key="save_bud"):
         save_budget(total)
         st.success("Rozpočet uložen!")
