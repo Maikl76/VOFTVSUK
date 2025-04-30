@@ -61,7 +61,7 @@ def run_zsc():
     st.subheader("Přidat novou cestu")
     with st.form("zsc_add_form", clear_on_submit=True):
         dest     = st.text_input("Plánovaná cesta", placeholder="Destinace nebo popis")
-        ticket   = st.number_input("Letenka, jízdenka (Kč)", min_value=0.0, step=100.0, format="%.2f")
+        ticket   = st.number_input("Letenka (Kč)", min_value=0.0, step=100.0, format="%.2f")
         fee      = st.number_input("Účast poplatek (Kč)", min_value=0.0, step=100.0, format="%.2f")
         lodging  = st.number_input("Ubytování (Kč)", min_value=0.0, step=100.0, format="%.2f")
         per_diem = st.number_input("Stravné (Kč)", min_value=0.0, step=50.0, format="%.2f")
@@ -78,7 +78,7 @@ def run_zsc():
             year       = str(datetime.date.today().year)
             record = {
                 "Plánovaná cesta": dest,
-                "Letenka, jízdenka (Kč)": ticket,
+                "Letenka (Kč)": ticket,
                 "Účast poplatek (Kč)": fee,
                 "Ubytování (Kč)": lodging,
                 "Stravné (Kč)": per_diem,
@@ -107,7 +107,7 @@ def run_zsc():
 
     # pevné pořadí sloupců
     cols = [
-        "Plánovaná cesta","Letenka, jízdenka (Kč)","Účast poplatek (Kč)",
+        "Plánovaná cesta","Letenka (Kč)","Účast poplatek (Kč)",
         "Ubytování (Kč)","Stravné (Kč)","Kapesné (Kč)",
         "Os. výdaje (Kč)","Cena za osobu (Kč)","Počet osob",
         "Celkem (Kč)","Termín","Zadal","Poznámka"
@@ -154,7 +154,7 @@ def run_zsc():
     orig = data[year][idx_edit]
     with st.form(f"zsc_edit_form_{idx_edit}", clear_on_submit=True):
         plan_e     = st.text_input("Plánovaná cesta", value=orig.get("Plánovaná cesta",""))
-        ticket_e   = st.number_input("Letenka, jízdenka (Kč)", min_value=0.0, value=float(orig.get("Letenka (Kč)",0)), step=100.0, format="%.2f")
+        ticket_e   = st.number_input("Letenka (Kč)", min_value=0.0, value=float(orig.get("Letenka (Kč)",0)), step=100.0, format="%.2f")
         fee_e      = st.number_input("Účast poplatek (Kč)", min_value=0.0, value=float(orig.get("Účast poplatek (Kč)",0)), step=100.0, format="%.2f")
         lodging_e  = st.number_input("Ubytování (Kč)", min_value=0.0, value=float(orig.get("Ubytování (Kč)",0)), step=100.0, format="%.2f")
         per_diem_e = st.number_input("Stravné (Kč)", min_value=0.0, value=float(orig.get("Stravné (Kč)",0)), step=50.0, format="%.2f")
@@ -170,7 +170,7 @@ def run_zsc():
             tot_e = round(per_p * poc_e, 2)
             updated = {
                 "Plánovaná cesta": plan_e,
-                "Letenka, jízdenka (Kč)": ticket_e,
+                "Letenka (Kč)": ticket_e,
                 "Účast poplatek (Kč)": fee_e,
                 "Ubytování (Kč)": lodging_e,
                 "Stravné (Kč)": per_diem_e,
