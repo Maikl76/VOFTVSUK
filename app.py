@@ -79,7 +79,7 @@ with col2:
 st.markdown("""
 <style>
 .ql-editor { font-family:'Times New Roman', serif; font-size:14px; }
-.stTextInput>div>div>input { max-width:100%; }
+.stTextInput>div>div>input { max-width:500 px; }
 </style>
 """, unsafe_allow_html=True)
 
