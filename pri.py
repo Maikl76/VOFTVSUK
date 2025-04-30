@@ -114,7 +114,7 @@ def run_pri(selected_year):
 
             # Editace manual
             hr()
-            st.markdown("##### Upravit záznam")
+            st.markdown("##### Upravit ručně (inline není podporován)")
             idx_edit = st.selectbox(
                 "Vyberte řádek k úpravě",
                 options=df.index,
