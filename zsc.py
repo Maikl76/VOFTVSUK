@@ -154,7 +154,7 @@ def run_zsc():
     orig = data[year][idx_edit]
     with st.form(f"zsc_edit_form_{idx_edit}", clear_on_submit=True):
         plan_e     = st.text_input("Plánovaná cesta", value=orig.get("Plánovaná cesta",""))
-        ticket_e   = st.number_input("Letenka (Kč)", min_value=0.0, value=float(orig.get("Letenka (Kč)",0)), step=100.0, format="%.2f")
+        ticket_e   = st.number_input("Letenka, jízdenka (Kč)", min_value=0.0, value=float(orig.get("Letenka (Kč)",0)), step=100.0, format="%.2f")
         fee_e      = st.number_input("Účast poplatek (Kč)", min_value=0.0, value=float(orig.get("Účast poplatek (Kč)",0)), step=100.0, format="%.2f")
         lodging_e  = st.number_input("Ubytování (Kč)", min_value=0.0, value=float(orig.get("Ubytování (Kč)",0)), step=100.0, format="%.2f")
         per_diem_e = st.number_input("Stravné (Kč)", min_value=0.0, value=float(orig.get("Stravné (Kč)",0)), step=50.0, format="%.2f")
