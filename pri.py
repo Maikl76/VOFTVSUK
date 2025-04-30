@@ -17,6 +17,10 @@ def safe_rerun():
     except Exception:
         pass
 
+def hr():
+    """Vykreslí oddělovač"""
+    st.markdown("<hr style='border-top:5px solid white;'>", unsafe_allow_html=True)
+
 
 def load_data(current_year, next_year):
     response = supabase.table("pri_rehabilitace").select("data").eq("id", 1).execute()
@@ -88,6 +92,7 @@ def run_pri(selected_year):
 
     # Zobrazení tabulek pro oba roky
     for rok in [str(current_year), str(next_year)]:
+        hr()
         st.subheader(f"Poukazy na rok {rok}")
         df = pd.DataFrame(data[rok])
         if df.empty:
@@ -107,7 +112,7 @@ def run_pri(selected_year):
                 st.success("Řádek byl smazán!")
                 safe_rerun()
 
-            # Záložní editor
+            # Editace manual
             hr()
             st.markdown("##### Upravit ručně (inline není podporován)")
             idx_edit = st.selectbox(
