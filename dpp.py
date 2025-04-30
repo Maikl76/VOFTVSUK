@@ -3,7 +3,6 @@ import pandas as pd
 import datetime
 from io import BytesIO
 from supabase import create_client, Client
-import json
 
 # ===== KONFIGURACE SUPABASE =====
 # Načtení hodnot ze st.secrets
@@ -67,15 +66,14 @@ def run_dpp():
     with cols[1]:
         st.markdown("**Klikni pro aktualizaci a zobrazení změn**")
 
-    # Načtení dat z Supabase
+    # Načtení dat a rozpočtu
     if "dpp_data" not in st.session_state:
         st.session_state.dpp_data = load_data()
     data = st.session_state.dpp_data
-
     if "dpp_total_budget" not in st.session_state:
         st.session_state.dpp_total_budget = load_budget()
 
-    # Přidání nové akce
+    # Přidat novou akci
     hr()
     st.subheader("Přidat novou akci")
     with st.form("dpp_form", clear_on_submit=True):
@@ -113,10 +111,22 @@ def run_dpp():
     if df.empty or "Cena" not in df.columns:
         st.info("Zatím nebyly přidány žádné akce.")
     else:
-        # Předefinování pořadí sloupců
+        # Pořadí sloupců
         df = df[["Provede", "Název akce", "Cena/h", "Pč/h", "Cena", "Zadal", "Poznámka"]]
         table_height = 40 * (len(df) + 1)
         st.dataframe(df, use_container_width=True, height=table_height)
+
+        # Export do Excelu
+        buf = BytesIO()
+        with pd.ExcelWriter(buf, engine="xlsxwriter") as writer:
+            df.to_excel(writer, index=False, sheet_name="DPP")
+        buf.seek(0)
+        st.download_button(
+            "📥 Exportovat do Excelu",
+            data=buf.getvalue(),
+            file_name=f"dpp_zaznamy_{current_year}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
 
         # Mazání řádku
         hr()
@@ -143,8 +153,9 @@ def run_dpp():
             format_func=lambda idx: f"{df.loc[idx, 'Provede']} - {df.loc[idx, 'Název akce']}"
         )
         orig = data[str(current_year)][row_to_edit]
-        with st.form("dpp_edit_form"):
-            provede_e = st.text_input("Provede", value=orig.get(" Provede", ""))
+        # Dynamický formulář s clear_on_submit
+        with st.form(f"dpp_edit_form_{row_to_edit}", clear_on_submit=True):
+            provede_e = st.text_input("Provede", value=orig.get("Provede", ""))
             nazev_e = st.text_input("Název akce", value=orig.get("Název akce", ""))
             zadal_e = st.text_input("Zadal", value=orig.get("Zadal", ""))
             cena_h_e = st.number_input(
@@ -198,7 +209,7 @@ def run_dpp():
     col2.metric("Vydáno", f"{celkove_cerpano:.2f} Kč")
     col3.metric("Zbývá", f"{zbyva:.2f} Kč")
 
-    # Archiv a historie (nezměněno)
+    # Archiv a historie
     hr()
     st.subheader("Uložení do historie a nový rok")
     if st.button("💾 Uložit rok a začít nový", key="dpp_save_year"):
