@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import datetime
+from io import BytesIO
 from supabase import create_client, Client
 
 # ===== KONFIGURACE SUPABASE =====
@@ -43,7 +44,7 @@ def run_zsc():
     st.title("Zahraniční cesty")
     st.markdown("Evidence zahraničních cest pro aktuální rok")
 
-    # Rerun tlačítko
+    # tlačítko pro rerun
     if st.button("Aktualizovat", key="zsc_update"):
         safe_rerun()
 
@@ -104,7 +105,7 @@ def run_zsc():
         st.info("Žádné záznamy k zobrazení.")
         return
 
-    # Definované pořadí sloupců
+    # pevné pořadí sloupců
     cols = [
         "Plánovaná cesta","Letenka (Kč)","Účast poplatek (Kč)",
         "Ubytování (Kč)","Stravné (Kč)","Kapesné (Kč)",
@@ -114,13 +115,25 @@ def run_zsc():
     df = df[cols]
     st.dataframe(df, use_container_width=True, height=40*(len(df)+1))
 
+    # --- Export do Excelu ---
+    buf = BytesIO()
+    with pd.ExcelWriter(buf, engine="xlsxwriter") as writer:
+        df.to_excel(writer, index=False, sheet_name="Cesty")
+    buf.seek(0)
+    st.download_button(
+        "📥 Exportovat do Excelu",
+        data=buf.getvalue(),
+        file_name=f"zsc_cesty_{year}.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+
     # --- Mazání záznamu ---
     hr()
     st.markdown("##### Smazat záznam")
     idx_del = st.selectbox(
         "Vyberte řádek k odstranění",
         df.index,
-        format_func=lambda i: f"{df.loc[i,'Plánovaná cesta']} - {df.loc[i,'Termín']}",
+        format_func=lambda i: f"{df.loc[i,'Plánovaná cesta']} – {df.loc[i,'Termín']}",
         key="zsc_del"
     )
     if st.button("❌ Smazat řádek", key="zsc_del_btn"):
@@ -135,7 +148,7 @@ def run_zsc():
     idx_edit = st.selectbox(
         "Vyberte řádek k úpravě",
         df.index,
-        format_func=lambda i: f"{df.loc[i,'Plánovaná cesta']} - {df.loc[i,'Termín']}",
+        format_func=lambda i: f"{df.loc[i,'Plánovaná cesta']} – {df.loc[i,'Termín']}",
         key="zsc_edit"
     )
     orig = data[year][idx_edit]
