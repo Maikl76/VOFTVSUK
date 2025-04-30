@@ -78,7 +78,7 @@ def run_zsc():
             year       = str(datetime.date.today().year)
             record = {
                 "Plánovaná cesta": dest,
-                "Letenka (Kč)": ticket,
+                "Letenka, jízdenka (Kč)": ticket,
                 "Účast poplatek (Kč)": fee,
                 "Ubytování (Kč)": lodging,
                 "Stravné (Kč)": per_diem,
@@ -107,7 +107,7 @@ def run_zsc():
 
     # pevné pořadí sloupců
     cols = [
-        "Plánovaná cesta","Letenka (Kč)","Účast poplatek (Kč)",
+        "Plánovaná cesta","Letenka, jízdenka (Kč)","Účast poplatek (Kč)",
         "Ubytování (Kč)","Stravné (Kč)","Kapesné (Kč)",
         "Os. výdaje (Kč)","Cena za osobu (Kč)","Počet osob",
         "Celkem (Kč)","Termín","Zadal","Poznámka"
@@ -170,7 +170,7 @@ def run_zsc():
             tot_e = round(per_p * poc_e, 2)
             updated = {
                 "Plánovaná cesta": plan_e,
-                "Letenka (Kč)": ticket_e,
+                "Letenka, jízdenka (Kč)": ticket_e,
                 "Účast poplatek (Kč)": fee_e,
                 "Ubytování (Kč)": lodging_e,
                 "Stravné (Kč)": per_diem_e,
