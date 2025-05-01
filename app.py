@@ -104,6 +104,14 @@ def run_summary():
         st.info("Žádní studenti nejsou zaregistrováni.")
         return
 
+    # -------------------------------------------------
+    # Odstraníme absolventy, aby se v souhrnu neobjevili
+    students = [s for s in students if not s.get("is_graduated", False)]
+    if not students:
+        st.info("Žádní aktivní studenti k zobrazení.")
+        return
+    # -------------------------------------------------
+
     base_cols = ["Hodnost","Jméno","Příjmení","Ročník","Kohorta"]
     desired = [
         "TaD-I","TaD-II","TaD-III","TaD-1","TaD-2","TaD-3",
@@ -309,7 +317,6 @@ with tabs[0]:
                     eval_doc.add_page_break()
                     doc_items = items if st.session_state.get("include_celkovy", False) else to_eval
                     for item in doc_items:
-                        # Use current in-memory evaluation data (including uploaded tables)
                         stored = st.session_state.evaluations.get(key, {})
                         data = new.get(item, stored.get(item, {}))
                         eval_doc.add_heading(item, level=2)
@@ -349,7 +356,7 @@ with tabs[1]:
 with tabs[2]:
     dpp.run_dpp()
 with tabs[3]:
-    pri.run_pri(st.number_input("Rok PR‑I",2000,2100,datetime.datetime.now().year))
+    pri.run_pri(st.number_input("Rok PR-I",2000,2100,datetime.datetime.now().year))
 with tabs[4]:
     zsc.run_zsc()
 with tabs[5]:
