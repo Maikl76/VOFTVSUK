@@ -6,69 +6,107 @@ from copy import deepcopy
 from io import BytesIO
 from streamlit.runtime.scriptrunner import RerunException, RerunData
 
-# Inicializace Supabase klienta
-url = st.secrets["supabase"]["supabase_url"]
-key = st.secrets["supabase"]["supabase_key"]
-supabase: Client = create_client(url, key)
+# ===== KONFIGURACE SUPABASE =====
+SUPABASE_URL = st.secrets["supabase"]["supabase_url"]
+SUPABASE_KEY = st.secrets["supabase"]["supabase_key"]
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+# =================================
 
 def load_students():
     try:
         resp = supabase.table("students").select("*").execute()
         return resp.data or []
     except Exception as e:
-        st.error(f"Chyba při načítání studentů: {e}")
+        st.error("Chyba při načítání studentů: " + str(e))
         return []
 
+def save_students(updated_student):
+    try:
+        resp = (
+            supabase
+            .table("students")
+            .update(updated_student)
+            .eq("id_op", updated_student["id_op"])
+            .execute()
+        )
+        return resp.data
+    except Exception as e:
+        st.error("Chyba při aktualizaci studenta: " + str(e))
+        return None
+
+def insert_student(new_student):
+    try:
+        resp = supabase.table("students").insert(new_student).execute()
+        return resp.data
+    except Exception as e:
+        st.error("Chyba při vkládání nového studenta: " + str(e))
+        return None
+
+def delete_student(student_id):
+    try:
+        resp = supabase.table("students").delete().eq("id_op", student_id).execute()
+        return resp.data
+    except Exception as e:
+        st.error("Chyba při mazání studenta: " + str(e))
+        return None
+
 def run_add_student():
-    st.header("Přidat nového studenta")
-    with st.form("add_student_form"):
-        first    = st.text_input("Jméno")
-        last     = st.text_input("Příjmení")
-        dob      = st.date_input("Datum narození", min_value=datetime.date(1960,1,1))
-        addr     = st.text_input("Bydliště")
-        phone    = st.text_input("Telefon")
-        email    = st.text_input("Email")
-        id_op    = st.text_input("ID-OP")
-        id_sp    = st.text_input("ID-SP")
-        note     = st.text_area("Poznámka")
-        study    = st.selectbox("Typ studia", ["Prezenční","Kombinované"])
-        cohort   = st.selectbox("Ročník", ["1. Bc.","2. Bc.","3. Bc.","1. Mgr.","2. Mgr."])
-        graduated = st.checkbox("Absolvent")
+    cols = st.columns([8, 1])
+    cols[0].header("Přidat nového studenta")
+    if cols[1].button("Aktualizovat", key="update_add"):
+        raise RerunException(RerunData(st.query_params))
+
+    with st.form("add_student_form", clear_on_submit=True):
+        hodnost       = st.selectbox("Hodnost", ["--","svob.","des.","čet.","rtn. Bc.","rtm. Bc."], key="add_hodnost")
+        first_name    = st.text_input("Jméno", key="add_first_name")
+        last_name     = st.text_input("Příjmení", key="add_last_name")
+        date_of_birth = st.date_input("Datum narození", min_value=datetime.date(1960,1,1), key="add_dob")
+        address       = st.text_input("Bydliště", key="add_address")
+        phone         = st.text_input("Telefon", key="add_phone")
+        email         = st.text_input("Email", key="add_email")
+        id_op         = st.text_input("ID-OP", key="add_id_op")
+        id_sp         = st.text_input("ID-SP", key="add_id_sp")
+        note          = st.text_area("Poznámka", key="add_note")
+        study_type    = st.selectbox("Typ studia", ["Prezenční","Kombinované"], key="add_study_type")
+        cohorts       = ["1. Bc.","2. Bc.","3. Bc.","1. Mgr.","2. Mgr."]
+        cohort        = st.selectbox("Ročník", cohorts, key="add_cohort")
+        graduated     = st.checkbox("Absolvent", key="add_graduated")
         if graduated:
             cohort = "Absolvent"
+
         if st.form_submit_button("Přidat studenta"):
             new_student = {
-                "first_name":    first,
-                "last_name":     last,
-                "date_of_birth": dob.strftime("%Y-%m-%d"),
-                "address":       addr,
-                "phone":         phone,
-                "email":         email,
-                "id_op":         id_op,
-                "id_sp":         id_sp,
-                "note":          note,
-                "study_type":    study,
-                "cohort":        cohort,
-                "is_graduated":  graduated
+                "hodnost":      hodnost,
+                "first_name":   first_name,
+                "last_name":    last_name,
+                "date_of_birth": date_of_birth.strftime("%Y-%m-%d"),
+                "address":      address,
+                "phone":        phone,
+                "email":        email,
+                "id_op":        id_op,
+                "id_sp":        id_sp,
+                "note":         note,
+                "study_type":   study_type,
+                "cohort":       cohort,
+                "subjects":     {},
+                "is_graduated": graduated
             }
-            try:
-                supabase.table("students").insert(new_student).execute()
-                st.success("Nový student přidán!")
-                st.experimental_rerun()
-            except Exception as e:
-                st.error(f"Chyba při přidávání: {e}")
+            insert_student(new_student)
+            st.success("Nový student přidán!")
+            raise RerunException(RerunData(st.query_params))
 
 def run_edit_student():
     cols = st.columns([8, 1])
     cols[0].header("Editace studenta")
     if cols[1].button("Aktualizovat", key="update_edit"):
-        raise RerunException(RerunData(st.experimental_get_query_params()))
+        raise RerunException(RerunData(st.query_params))
 
     students = load_students()
     if not students:
         st.info("Žádní studenti nejsou k dispozici ke změně.")
         return
 
+    # Mapa pro filtrování
     cohort_map = {
         "Všichni":      None,
         "První ročník": "1. Bc.",
@@ -78,20 +116,37 @@ def run_edit_student():
         "Pátý ročník":  "2. Mgr."
     }
     choice = st.selectbox("Filtrovat ročník", list(cohort_map.keys()), key="filter_cohort")
+
+    # Pokud je vybrán konkrétní ročník, zobrazujeme jen ty studenty,
+    # jinak všechny, kteří nejsou absolventi
     if cohort_map[choice]:
         filtered = [s for s in students if s.get("cohort") == cohort_map[choice]]
     else:
         filtered = [s for s in students if s.get("cohort") != "Absolvent"]
 
-    # Tabulka náhledu
+    if not filtered:
+        st.info("Žádní studenti k zobrazení.")
+        return
+
+    # Pořadí ročníků pro třídění
+    order = {"1. Bc.":0, "2. Bc.":1, "3. Bc.":2, "1. Mgr.":3, "2. Mgr.":4}
+
+    # Seřadíme *seznam* studentů už v Pythonu (vyhneme se .map na DataFrame)
+    filtered = sorted(
+        filtered,
+        key=lambda s: (
+            order.get(s.get("cohort"), len(order)),
+            s.get("last_name",""),
+            s.get("first_name","")
+        )
+    )
+
+    # Vykreslíme DataFrame
     df = pd.DataFrame(filtered)
     df = df.drop(columns=["id", "subjects", "is_graduated"], errors="ignore")
-    order = {"1. Bc.":0, "2. Bc.":1, "3. Bc.":2, "1. Mgr.":3, "2. Mgr.":4}
-    df["__order"] = df["cohort"].map(order).fillna(len(order))
-    df = df.sort_values(["__order", "last_name", "first_name"])
-    df = df.drop(columns="__order")
     st.dataframe(df, use_container_width=True)
 
+    # Export tlačítko
     if st.button("Export do Excelu", key="export_edit"):
         buf = BytesIO()
         with pd.ExcelWriter(buf, engine="xlsxwriter") as writer:
@@ -104,10 +159,11 @@ def run_edit_student():
             key="download_edit"
         )
 
+    # --- Výběr konkrétního studenta k detailní úpravě ---
     idx = st.selectbox(
         "Vyberte studenta ke změně",
         options=list(range(len(filtered))),
-        format_func=lambda i: f"{filtered[i]['first_name']} {filtered[i]['last_name']} ({filtered[i]['cohort']})",
+        format_func=lambda i: f"{filtered[i]['hodnost']} {filtered[i]['first_name']} {filtered[i]['last_name']} ({filtered[i]['cohort']})",
         key="select_student_edit"
     )
     student = deepcopy(filtered[idx])
@@ -120,15 +176,15 @@ def run_edit_student():
             key="edit_hodnost"
         )
         new_first = st.text_input("Jméno", value=student.get("first_name",""), key="edit_first_name")
-        new_last  = st.text_input("Příjmení", value=student.get("last_name",""), key="edit_last_name")
+        new_last  = st.text_input("Příjmení", value=student.get("last_name",""),  key="edit_last_name")
         dob_def   = datetime.datetime.strptime(student.get("date_of_birth","1970-01-01"), "%Y-%m-%d")
         new_dob   = st.date_input("Datum narození", value=dob_def, min_value=datetime.date(1960,1,1), key="edit_dob")
         new_addr  = st.text_input("Bydliště", value=student.get("address",""), key="edit_address")
-        new_phone = st.text_input("Telefon", value=student.get("phone",""), key="edit_phone")
-        new_email = st.text_input("Email", value=student.get("email",""), key="edit_email")
-        new_id_op = st.text_input("ID-OP", value=student.get("id_op",""), key="edit_id_op")
-        new_id_sp = st.text_input("ID-SP", value=student.get("id_sp",""), key="edit_id_sp")
-        new_note  = st.text_area("Poznámka", value=student.get("note",""), key="edit_note")
+        new_phone = st.text_input("Telefon",   value=student.get("phone",""),    key="edit_phone")
+        new_email = st.text_input("Email",     value=student.get("email",""),    key="edit_email")
+        new_id_op = st.text_input("ID-OP",     value=student.get("id_op",""),     key="edit_id_op")
+        new_id_sp = st.text_input("ID-SP",     value=student.get("id_sp",""),     key="edit_id_sp")
+        new_note  = st.text_area("Poznámka",   value=student.get("note",""),       key="edit_note")
         new_type  = st.selectbox(
             "Typ studia",
             ["Prezenční","Kombinované"],
@@ -144,39 +200,36 @@ def run_edit_student():
         )
         graduated = st.checkbox("Absolvent", value=student.get("is_graduated", False), key="edit_graduated")
 
-        # Pokud je označen jako absolvent, přepíšeme ročník
+        # Pokud je nyní absolventem, přepíšeme ročník
         if graduated:
             new_cohort = "Absolvent"
 
         if st.form_submit_button("Uložit změny"):
             updated = deepcopy(student)
             updated.update({
-                "hodnost":        new_hodnost,
-                "first_name":     new_first,
-                "last_name":      new_last,
-                "date_of_birth":  new_dob.strftime("%Y-%m-%d"),
-                "address":        new_addr,
-                "phone":          new_phone,
-                "email":          new_email,
-                "id_op":          new_id_op,
-                "id_sp":          new_id_sp,
-                "note":           new_note,
-                "study_type":     new_type,
-                "cohort":         new_cohort,
-                "is_graduated":   graduated
+                "hodnost":      new_hodnost,
+                "first_name":   new_first,
+                "last_name":    new_last,
+                "date_of_birth":new_dob.strftime("%Y-%m-%d"),
+                "address":      new_addr,
+                "phone":        new_phone,
+                "email":        new_email,
+                "id_op":        new_id_op,
+                "id_sp":        new_id_sp,
+                "note":         new_note,
+                "study_type":   new_type,
+                "cohort":       new_cohort,
+                "is_graduated": graduated
             })
-            try:
-                supabase.table("students").update(updated).eq("id", student["id"]).execute()
-                st.success("Změny uloženy!")
-                st.experimental_rerun()
-            except Exception as e:
-                st.error(f"Chyba při ukládání změn: {e}")
+            save_students(updated)
+            st.success("Student upraven!")
+            raise RerunException(RerunData(st.query_params))
 
 def run_graduates():
     cols = st.columns([8, 1])
     cols[0].header("Absolventi")
     if cols[1].button("Aktualizovat", key="update_grads"):
-        raise RerunException(RerunData(st.experimental_get_query_params()))
+        raise RerunException(RerunData(st.query_params))
 
     students = load_students()
     grads = [s for s in students if s.get("is_graduated", False)]
@@ -187,3 +240,6 @@ def run_graduates():
     df = pd.DataFrame(grads)
     df = df.drop(columns=["id","subjects","is_graduated"], errors="ignore")
     st.dataframe(df, use_container_width=True)
+
+if __name__ == "__main__":
+    pass
