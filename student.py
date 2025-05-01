@@ -1,5 +1,3 @@
-# student.py
-
 import streamlit as st
 import pandas as pd
 from supabase import create_client, Client
@@ -9,8 +7,8 @@ from io import BytesIO
 from streamlit.runtime.scriptrunner import RerunException, RerunData
 
 # Inicializace Supabase klienta
-url = st.secrets["SUPABASE_URL"]
-key = st.secrets["SUPABASE_KEY"]
+url = st.secrets["supabase"]["supabase_url"]
+key = st.secrets["supabase"]["supabase_key"]
 supabase: Client = create_client(url, key)
 
 def load_students():
@@ -24,32 +22,34 @@ def load_students():
 def run_add_student():
     st.header("Přidat nového studenta")
     with st.form("add_student_form"):
-        first = st.text_input("Jméno")
-        last  = st.text_input("Příjmení")
-        dob   = st.date_input("Datum narození", min_value=datetime.date(1960,1,1))
-        addr  = st.text_input("Bydliště")
-        phone = st.text_input("Telefon")
-        email = st.text_input("Email")
-        id_op = st.text_input("ID-OP")
-        id_sp = st.text_input("ID-SP")
-        note  = st.text_area("Poznámka")
-        study = st.selectbox("Typ studia", ["Prezenční","Kombinované"])
-        cohort = st.selectbox("Ročník", ["1. Bc.","2. Bc.","3. Bc.","1. Mgr.","2. Mgr."])
+        first    = st.text_input("Jméno")
+        last     = st.text_input("Příjmení")
+        dob      = st.date_input("Datum narození", min_value=datetime.date(1960,1,1))
+        addr     = st.text_input("Bydliště")
+        phone    = st.text_input("Telefon")
+        email    = st.text_input("Email")
+        id_op    = st.text_input("ID-OP")
+        id_sp    = st.text_input("ID-SP")
+        note     = st.text_area("Poznámka")
+        study    = st.selectbox("Typ studia", ["Prezenční","Kombinované"])
+        cohort   = st.selectbox("Ročník", ["1. Bc.","2. Bc.","3. Bc.","1. Mgr.","2. Mgr."])
         graduated = st.checkbox("Absolvent")
+        if graduated:
+            cohort = "Absolvent"
         if st.form_submit_button("Přidat studenta"):
             new_student = {
-                "first_name": first,
-                "last_name":  last,
+                "first_name":    first,
+                "last_name":     last,
                 "date_of_birth": dob.strftime("%Y-%m-%d"),
-                "address":    addr,
-                "phone":      phone,
-                "email":      email,
-                "id_op":      id_op,
-                "id_sp":      id_sp,
-                "note":       note,
-                "study_type": study,
-                "cohort":     cohort,
-                "is_graduated": graduated
+                "address":       addr,
+                "phone":         phone,
+                "email":         email,
+                "id_op":         id_op,
+                "id_sp":         id_sp,
+                "note":          note,
+                "study_type":    study,
+                "cohort":        cohort,
+                "is_graduated":  graduated
             }
             try:
                 supabase.table("students").insert(new_student).execute()
@@ -73,7 +73,7 @@ def run_edit_student():
         "Všichni":      None,
         "První ročník": "1. Bc.",
         "Druhý ročník": "2. Bc.",
-        "Třetí ročník":"3. Bc.",
+        "Třetí ročník": "3. Bc.",
         "Čtvrtý ročník":"1. Mgr.",
         "Pátý ročník":  "2. Mgr."
     }
@@ -81,19 +81,15 @@ def run_edit_student():
     if cohort_map[choice]:
         filtered = [s for s in students if s.get("cohort") == cohort_map[choice]]
     else:
-        filtered = students
+        filtered = [s for s in students if s.get("cohort") != "Absolvent"]
 
+    # Tabulka náhledu
     df = pd.DataFrame(filtered)
     df = df.drop(columns=["id", "subjects", "is_graduated"], errors="ignore")
-
-    # -------------------------------------------------
-    # Seřadíme podle ročníku: 1. Bc., 2. Bc., 3. Bc., 1. Mgr., 2. Mgr.
-    order = {"1. Bc.": 0, "2. Bc.": 1, "3. Bc.": 2, "1. Mgr.": 3, "2. Mgr.": 4}
+    order = {"1. Bc.":0, "2. Bc.":1, "3. Bc.":2, "1. Mgr.":3, "2. Mgr.":4}
     df["__order"] = df["cohort"].map(order).fillna(len(order))
     df = df.sort_values(["__order", "last_name", "first_name"])
     df = df.drop(columns="__order")
-    # -------------------------------------------------
-
     st.dataframe(df, use_container_width=True)
 
     if st.button("Export do Excelu", key="export_edit"):
@@ -108,13 +104,13 @@ def run_edit_student():
             key="download_edit"
         )
 
-    selected_index = st.selectbox(
+    idx = st.selectbox(
         "Vyberte studenta ke změně",
         options=list(range(len(filtered))),
-        format_func=lambda i: f"{filtered[i]['hodnost']} {filtered[i]['first_name']} {filtered[i]['last_name']} ({filtered[i]['cohort']})",
+        format_func=lambda i: f"{filtered[i]['first_name']} {filtered[i]['last_name']} ({filtered[i]['cohort']})",
         key="select_student_edit"
     )
-    student = deepcopy(filtered[selected_index])
+    student = deepcopy(filtered[idx])
 
     with st.form("edit_student_form"):
         new_hodnost = st.selectbox(
@@ -139,7 +135,7 @@ def run_edit_student():
             index=["Prezenční","Kombinované"].index(student.get("study_type","Prezenční")),
             key="edit_study_type"
         )
-        cohorts   = ["1. Bc.","2. Bc.","3. Bc.","1. Mgr.","2. Mgr."]
+        cohorts   = ["1. Bc.","2. Bc.","3. Bc.","1. Mgr.","2. Mgr.","Absolvent"]
         new_cohort= st.selectbox(
             "Ročník",
             cohorts,
@@ -147,6 +143,11 @@ def run_edit_student():
             key="edit_cohort"
         )
         graduated = st.checkbox("Absolvent", value=student.get("is_graduated", False), key="edit_graduated")
+
+        # Pokud je označen jako absolvent, přepíšeme ročník
+        if graduated:
+            new_cohort = "Absolvent"
+
         if st.form_submit_button("Uložit změny"):
             updated = deepcopy(student)
             updated.update({
@@ -171,7 +172,6 @@ def run_edit_student():
             except Exception as e:
                 st.error(f"Chyba při ukládání změn: {e}")
 
-    # Záložka absolventů
 def run_graduates():
     cols = st.columns([8, 1])
     cols[0].header("Absolventi")
@@ -187,6 +187,3 @@ def run_graduates():
     df = pd.DataFrame(grads)
     df = df.drop(columns=["id","subjects","is_graduated"], errors="ignore")
     st.dataframe(df, use_container_width=True)
-
-if __name__ == "__main__":
-    run_add_student()
