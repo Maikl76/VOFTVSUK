@@ -200,16 +200,11 @@ def run_graduates():
         st.info('Žádní absolventi nejsou evidováni.')
         return
 
+    # Zobrazení seznamu absolventů
     df = pd.DataFrame(grads).drop(columns=['id','subjects','is_graduated'], errors='ignore')
     st.dataframe(df, use_container_width=True)
 
-    if st.button('Exportovat absolventy', key='export_grads'):
-        buf = BytesIO()
-        with pd.ExcelWriter(buf, engine="xlsxwriter") as writer:
-            df.to_excel(writer, index=False, sheet_name='Absolventi')
-        st.download_button('Stáhnout Excel', buf.getvalue(), file_name='Absolventi.xlsx', mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', key='download_grads')
-
-    # Výběr absolventa pro úpravu / smazání
+    # Výběr absolventa
     idx = st.selectbox(
         'Vyberte absolventa', list(range(len(grads))),
         format_func=lambda i: f"{grads[i]['hodnost']} {grads[i]['first_name']} {grads[i]['last_name']} (Absolvent)",
@@ -217,12 +212,51 @@ def run_graduates():
     )
     selected = deepcopy(grads[idx])
 
-    cols2 = st.columns([1,1])
-    if cols2[0].button('Upravit absolventa'):
-        # Přejít na formulář úprav
-        st.session_state['edit_student_id'] = selected['id']
-        raise RerunException(RerunData(st.query_params))
-    if cols2[1].button('Smazat absolventa'):
+    # Formulář pro úpravu absolventa
+    with st.form('edit_graduate_form'):
+        st.subheader(f"Úprava absolventa {selected['first_name']} {selected['last_name']}")
+        new_hodnost = st.selectbox(
+            'Hodnost', ['--','svob.','des.','čet.','rtn. Bc.','rtm. Bc.'],
+            index=['--','svob.','des.','čet.','rtn. Bc.','rtm. Bc.'].index(selected.get('hodnost','--'))
+        )
+        new_first = st.text_input('Jméno', value=selected.get('first_name',''))
+        new_last  = st.text_input('Příjmení', value=selected.get('last_name',''))
+        dob_def   = datetime.datetime.strptime(selected.get('date_of_birth','1970-01-01'), '%Y-%m-%d')
+        new_dob   = st.date_input('Datum narození', value=dob_def, min_value=datetime.date(1960,1,1))
+        new_addr  = st.text_input('Bydliště', value=selected.get('address',''))
+        new_phone = st.text_input('Telefon', value=selected.get('phone',''))
+        new_email = st.text_input('Email', value=selected.get('email',''))
+        new_id_op = st.text_input('ID-OP', value=selected.get('id_op',''))
+        new_id_sp = st.text_input('ID-SP', value=selected.get('id_sp',''))
+        new_note  = st.text_area('Poznámka', value=selected.get('note',''))
+        new_type  = st.selectbox(
+            'Typ studia', ['Prezenční','Kombinované'],
+            index=['Prezenční','Kombinované'].index(selected.get('study_type','Prezenční'))
+        )
+        # Odkazujeme cohort zůstává 'Absolvent'
+        st.write(f"Ročník: {selected.get('cohort','Absolvent')}")
+        # Tlačítko pro uložení úprav
+        if st.form_submit_button('Uložit úpravy absolventa'):
+            updated = deepcopy(selected)
+            updated.update({
+                'hodnost':      new_hodnost,
+                'first_name':   new_first,
+                'last_name':    new_last,
+                'date_of_birth':new_dob.strftime('%Y-%m-%d'),
+                'address':      new_addr,
+                'phone':        new_phone,
+                'email':        new_email,
+                'id_op':        new_id_op,
+                'id_sp':        new_id_sp,
+                'note':         new_note,
+                'study_type':   new_type
+            })
+            save_student(updated)
+            st.success('Úpravy absolventa uloženy!')
+            raise RerunException(RerunData(st.query_params))
+
+    # Tlačítko pro smazání absolventa
+    if st.button('Smazat absolventa', key='delete_graduate'):
         if st.confirm(f"Opravdu chcete smazat absolventa {selected['first_name']} {selected['last_name']}?", key='confirm_delete'):
             delete_student(selected['id'])
             st.success('Absolvent byl smazán.')
