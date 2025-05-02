@@ -255,9 +255,11 @@ def run_graduates():
             st.success('Úpravy absolventa uloženy!')
             raise RerunException(RerunData(st.query_params))
 
-    # Tlačítko pro smazání absolventa
-    if st.button('Smazat absolventa', key='delete_graduate'):
-        if st.confirm(f"Opravdu chcete smazat absolventa {selected['first_name']} {selected['last_name']}?", key='confirm_delete'):
-            delete_student(selected['id'])
-            st.success('Absolvent byl smazán.')
-            raise RerunException(RerunData(st.query_params))
+        # Možnost smazat absolventa s potvrzením
+    confirm = st.checkbox(
+        f"Opravdu chcete smazat absolventa {selected['first_name']} {selected['last_name']}?", key='confirm_delete'
+    )
+    if confirm and st.button('Potvrdit smazání absolventa', key='delete_graduate'):
+        delete_student(selected['id'])
+        st.success('Absolvent byl smazán.')
+        raise RerunException(RerunData(st.query_params))
